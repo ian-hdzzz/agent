@@ -1,0 +1,37 @@
+{
+  "name": "maria-interno",
+  "version": "1.0.0",
+  "description": "Sistema de tickets internos para empleados de CEA Querétaro",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "test": "tsx src/test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "tickets",
+    "internal",
+    "cea",
+    "queretaro",
+    "helpdesk"
+  ],
+  "author": "CEA Querétaro",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "pg": "^8.13.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.5.4",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}
