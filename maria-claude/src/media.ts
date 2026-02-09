@@ -125,13 +125,18 @@ export async function analyzeImage(imageUrl: string): Promise<string | null> {
                         },
                         {
                             type: "text",
-                            text: `Eres un asistente de la CEA Querétaro (agua y drenaje). Describe brevemente esta imagen en español. Si la imagen muestra:
-- Una fuga de agua, drenaje tapado, o problema de servicio: describe el problema
-- Un recibo o documento: resume la información importante
-- Una foto de medidor: indica si hay algo notable
-- Cualquier otra cosa: describe brevemente qué se ve
+                            text: `Eres un asistente de la CEA Querétaro (agua y drenaje). Analiza esta imagen y responde con el siguiente formato:
 
-Responde en 1-2 oraciones concisas.`
+CLASIFICACIÓN: [una de: FUGA_AGUA, DRENAJE, INFRAESTRUCTURA, MEDIDOR, RECIBO, NO_RELACIONADO]
+DESCRIPCIÓN: [1-2 oraciones describiendo lo que se ve]
+
+Guía de clasificación:
+- FUGA_AGUA: Se ve agua saliendo de tubería, calle mojada por fuga, charco por fuga, tubería rota
+- DRENAJE: Drenaje tapado, agua sucia saliendo, alcantarilla desbordada
+- INFRAESTRUCTURA: Tapa de registro dañada, hundimiento, daño en vía pública relacionado con agua/drenaje
+- MEDIDOR: Foto de medidor de agua
+- RECIBO: Recibo, factura, o documento de la CEA
+- NO_RELACIONADO: Cualquier imagen que NO muestre un problema de agua, drenaje, infraestructura hídrica, medidor ni recibo de la CEA`
                         }
                     ]
                 }
