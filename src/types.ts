@@ -236,3 +236,56 @@ export interface Customer {
     first_interaction_channel: string;
     created_at: string;
 }
+
+// ============================================
+// PorCobrar API Types
+// ============================================
+
+export interface PorCobrarCustomer {
+    id: string;           // UUID del cliente
+    legal_name: string;   // Razón social
+    tax_profile: string;  // RFC (ej: XAXX010101000)
+}
+
+export interface PorCobrarInvoiceItem {
+    product_key: string;         // Clave de producto SAT
+    quantity: number;
+    unit_key: string;           // Unidad de medida SAT
+    unit_price: number;
+    description: string;
+    discount: number;
+    tax_object?: string;
+    taxes?: Array<{
+        type: string;
+        rate: number;
+    }>;
+}
+
+export interface PorCobrarInvoice {
+    currency: string;           // "MXN"
+    discount: number;
+    issue_date: number;         // Unix timestamp
+    due_date: number;          // Unix timestamp
+    subtotal: number;
+    tax: number;
+    total: number;
+    purchase_order: string;
+    identifier?: string;
+    notes?: string;
+    items: PorCobrarInvoiceItem[];
+}
+
+export interface CreatePaymentLinkRequest {
+    customer: PorCobrarCustomer;
+    invoice: PorCobrarInvoice;
+}
+
+export interface CreatePaymentLinkResponse {
+    success: boolean;
+    data?: {
+        payment_link: string;
+        folio: string;
+        uuid: string;
+    };
+    error?: string;
+}

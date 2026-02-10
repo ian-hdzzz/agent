@@ -17,6 +17,8 @@ import type {
     ConsumoResponse,
     ContratoResponse,
     TicketType,
+    CreatePaymentLinkRequest,
+    CreatePaymentLinkResponse,
 } from "./types.js";
 import { getCurrentChatwootContext } from "./context.js";
 
@@ -1011,6 +1013,169 @@ ESTADOS:
 });
 
 // ============================================
+// PorCobrar Configuration
+// ============================================
+
+const PORCOBRAR_API_BASE = process.env.PORCOBRAR_API_URL || "https://api.porcobrar.com";
+const PORCOBRAR_ACCESS_TOKEN = process.env.PORCOBRAR_ACCESS_TOKEN || "";
+
+/**
+ * GENERATE PAYMENT LINK - Creates PorCobrar invoice and returns payment link
+ * Critical for: pagos agent when user wants to pay
+ */
+export const generatePaymentLinkTool = tool({
+    name: "generate_payment_link",
+    description: `Genera un enlace de pago de PorCobrar para que el cliente pueda pagar su adeudo.
+
+CUÁNDO USAR:
+- Cuando el usuario quiera pagar su recibo
+- Después de consultar el saldo con get_deuda
+- Solo si hay un monto a pagar (totalDeuda > 0)
+
+RETORNA:
+- payment_link: URL para que el cliente realice el pago
+- folio: Número de folio de la factura
+- total: Monto total a pagar
+
+IMPORTANTE: 
+- Envía el link completo al usuario por WhatsApp
+- El link es válido por 30 días
+- El cliente puede pagar con tarjeta o transferencia`,
+    parameters: z.object({
+        contrato: z.string().describe("Número de contrato CEA"),
+        total_amount: z.number().describe("Monto total a pagar (de get_deuda)"),
+        customer_name: z.string().describe("Nombre del cliente"),
+        customer_rfc: z.string().optional().describe("RFC del cliente (opcional, usar XAXX010101000 si no se tiene)")
+    }),
+    execute: async ({ contrato, total_amount, customer_name, customer_rfc }) => {
+        console.log(`[generate_payment_link] Creating payment link for contract: ${contrato}, amount: ${total_amount}`);
+
+        // Validación de credenciales
+        if (!PORCOBRAR_ACCESS_TOKEN) {
+            return {
+                success: false,
+                error: "Credenciales de PorCobrar no configuradas. Contacta al administrador."
+            };
+        }
+
+        // Validación de monto
+        if (total_amount <= 0) {
+            return {
+                success: false,
+                error: "No hay monto a pagar. El saldo debe ser mayor a $0."
+            };
+        }
+
+        try {
+            // Generar UUID para el cliente (basado en contrato)
+            // En producción, esto debería venir de la base de datos
+            const customerUUID = `cea-${contrato}-${Date.now().toString().slice(-6)}`;
+
+            // Calcular fechas
+            const now = Math.floor(Date.now() / 1000);
+            const dueDate = now + (30 * 24 * 60 * 60); // 30 días
+
+            // Calcular impuestos (16% IVA)
+            const subtotal = total_amount / 1.16;
+            const tax = total_amount - subtotal;
+
+            // Construir request body
+            const requestBody = {
+                customer: {
+                    id: customerUUID,
+                    legal_name: customer_name,
+                    tax_profile: customer_rfc || "XAXX010101000"
+                },
+                invoice: {
+                    currency: "MXN",
+                    discount: 0,
+                    issue_date: now,
+                    due_date: dueDate,
+                    subtotal: Number(subtotal.toFixed(2)),
+                    tax: Number(tax.toFixed(2)),
+                    total: Number(total_amount.toFixed(2)),
+                    purchase_order: `CEA-${contrato}`,
+                    identifier: `Pago servicio agua - Contrato ${contrato}`,
+                    notes: `Pago de servicio de agua. Contrato: ${contrato}`,
+                    items: [
+                        {
+                            product_key: "90111700", // Servicios de suministro de agua
+                            quantity: 1,
+                            unit_key: "E48", // Servicio
+                            unit_price: Number(subtotal.toFixed(2)),
+                            description: `Servicio de agua - Contrato ${contrato}`,
+                            discount: 0,
+                            tax_object: "02", // Sí objeto de impuesto
+                            taxes: [
+                                {
+                                    type: "IVA",
+                                    rate: 0.16
+                                }
+                            ]
+                        }
+                    ]
+                }
+            };
+
+            // Llamar API de PorCobrar con retry
+            const response = await fetchWithRetry(
+                `${PORCOBRAR_API_BASE}/v1/invoice/invoice`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${PORCOBRAR_ACCESS_TOKEN}`
+                    },
+                    body: JSON.stringify(requestBody)
+                },
+                3, // max retries
+                1000 // initial delay
+            );
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`[generate_payment_link] API error: ${response.status}`, errorText);
+                return {
+                    success: false,
+                    error: `Error al generar enlace de pago (${response.status}). Intenta más tarde.`
+                };
+            }
+
+            const result = await response.json();
+
+            // Extraer payment_link de la respuesta
+            const paymentLink = result.data?.payment_link;
+            const folio = result.data?.folio || result.data?.uuid;
+
+            if (!paymentLink) {
+                console.error(`[generate_payment_link] No payment_link in response:`, result);
+                return {
+                    success: false,
+                    error: "No se pudo obtener el enlace de pago. Intenta nuevamente."
+                };
+            }
+
+            console.log(`[generate_payment_link] Success! Link: ${paymentLink}`);
+
+            return {
+                success: true,
+                payment_link: paymentLink,
+                folio: folio,
+                total: total_amount,
+                resumen: `✅ Enlace generado: ${paymentLink}\nMonto: $${total_amount.toFixed(2)} MXN\nFolio: ${folio}`
+            };
+
+        } catch (error) {
+            console.error(`[generate_payment_link] Error:`, error);
+            return {
+                success: false,
+                error: "Error al generar enlace de pago. Por favor intenta más tarde."
+            };
+        }
+    }
+});
+
+// ============================================
 // Export all native tools as an array
 // ============================================
 
@@ -1021,8 +1186,12 @@ export const nativeTools = [
     createTicketTool,
     getClientTicketsTool,
     searchCustomerByContractTool,
-    updateTicketTool
+    updateTicketTool,
+    generatePaymentLinkTool
 ];
+
+// Export allTools as alias for compatibility
+export const allTools = nativeTools;
 
 // Export individually for selective use
 export {

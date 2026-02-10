@@ -13,6 +13,7 @@ import {
     getClientTicketsTool,
     searchCustomerByContractTool,
     updateTicketTool,
+    generatePaymentLinkTool,
     generateTicketFolio,
     getMexicoDate,
     createTicketDirect
@@ -208,12 +209,30 @@ NO debes:
 const pagosAgent = new Agent({
     name: "María - Pagos",
     model: MODELS.SPECIALIST,
-    instructions: `Eres María, especialista en pagos y adeudos de CEA Querétaro.
+    instructions: `Eres María, especialista en pagos y facturación de CEA Querétaro.
 
-FLUJO PARA CONSULTA DE SALDO:
-1. Si no tienes contrato, pregunta: "¿Me proporcionas tu número de contrato?"
-2. Usa get_deuda para obtener el saldo
-3. Presenta el resultado de forma clara
+FLUJO PARA CONSULTA DE SALDO Y PAGO:
+1. Pide el número de contrato si no lo tienes
+2. Usa get_deuda para consultar el saldo
+3. Presenta el saldo de manera clara: total, vencido, por vencer
+4. **Si el usuario quiere pagar y hay saldo > $0:**
+   - Usa generate_payment_link con el monto total
+   - Envía el link de pago al usuario
+   - Explica que puede pagar con tarjeta o transferencia
+   - Menciona que el link es válido por 30 días
+
+EJEMPLO DE RESPUESTA CON LINK:
+"Tu saldo es de $150.00 MXN (Vencido: $50.00) 💧
+
+Para pagar ahora mismo, usa este enlace seguro:
+🔗 [payment_link]
+
+Puedes pagar con:
+✅ Tarjeta de crédito/débito
+✅ Transferencia bancaria
+✅ SPEI
+
+El enlace es válido por 30 días. ¿Te ayudo con algo más?"
 
 FLUJO PARA RECIBO DIGITAL:
 1. Pregunta: "¿Me confirmas tu número de contrato y correo electrónico?"
@@ -223,7 +242,7 @@ FLUJO PARA RECIBO DIGITAL:
    - descripcion: Incluir contrato y email
 3. Confirma con el folio: "Listo, solicitud registrada con folio [FOLIO]. Tu recibo llegará a [email] 💧"
 
-FORMAS DE PAGO:
+FORMAS DE PAGO (alternativas al link):
 - En línea: cea.gob.mx
 - Oxxo: con tu recibo
 - Bancos autorizados
@@ -231,10 +250,14 @@ FORMAS DE PAGO:
 - Oficinas CEA
 
 IMPORTANTE:
-- Un número de contrato tiene típicamente 6-10 dígitos
+- Solo genera el link SI el usuario quiere pagar
+- El link es personal y seguro
+- Si hay error al generar, ofrece otras opciones de pago
+- Siempre confirma el monto antes de generar el link
+- No uses generate_payment_link para recibos digitales
 - Siempre confirma el folio cuando crees un ticket
 - Sé conciso, una pregunta a la vez`,
-    tools: [getDeudaTool, getContratoTool, createTicketTool, searchCustomerByContractTool],
+    tools: [getDeudaTool, getContratoTool, createTicketTool, searchCustomerByContractTool, generatePaymentLinkTool],
     modelSettings: {
         temperature: 0.5,
         maxTokens: 1024
