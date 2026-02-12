@@ -34,6 +34,7 @@ const app = express();
 
 // Middleware
 app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Request logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -216,6 +217,22 @@ interface EvolutionWebhook {
     };
 }
 
+interface TwilioWebhook {
+    MessageSid: string;
+    AccountSid: string;
+    From: string;
+    To: string;
+    Body?: string;
+    MessageStatus?: string;
+    NumMedia?: string;
+    ApiVersion?: string;
+    SmsSid?: string;
+    SmsStatus?: string;
+    ChannelPrefix?: string;
+    ChannelInstallSid?: string;
+    ChannelToAddress?: string;
+}
+
 async function sendWhatsAppMessage(instance: string, to: string, text: string): Promise<void> {
     const evolutionUrl = process.env.EVOLUTION_API_URL || "https://evolution.whoopflow.com";
     const evolutionKey = process.env.EVOLUTION_API_KEY || "";
@@ -238,6 +255,35 @@ async function sendWhatsAppMessage(instance: string, to: string, text: string): 
         }
     } catch (error) {
         console.error(`[Evolution] Error sending message:`, error);
+    }
+}
+
+async function sendTwilioMessage(to: string, from: string, text: string): Promise<void> {
+    const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID || "";
+    const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN || "";
+    const twilioApiUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
+
+    try {
+        const params = new URLSearchParams();
+        params.append("To", to);
+        params.append("From", from);
+        params.append("Body", text);
+
+        const response = await fetch(twilioApiUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Authorization": `Basic ${Buffer.from(`${twilioAccountSid}:${twilioAuthToken}`).toString('base64')}`
+            },
+            body: params.toString()
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[Twilio] Failed to send message: ${response.status}`, errorText);
+        }
+    } catch (error) {
+        console.error(`[Twilio] Error sending message:`, error);
     }
 }
 
@@ -303,6 +349,79 @@ app.post("/webhook/evolution", async (req: Request, res: Response): Promise<void
     }
 });
 
+// ============================================
+// Twilio API Webhook Handler
+// ============================================
+
+app.post("/webhook/twilio", async (req: Request, res: Response): Promise<void> => {
+    const requestId = (req as any).requestId || crypto.randomUUID().substring(0, 8);
+
+    try {
+        const payload = req.body as TwilioWebhook;
+
+        console.log(`[${requestId}] Twilio webhook received:`, {
+            from: payload.From,
+            to: payload.To,
+            messageSid: payload.MessageSid,
+            status: payload.MessageStatus
+        });
+
+        // Validate required fields
+        if (!payload.MessageSid || !payload.From || !payload.To) {
+            res.status(400).json({ 
+                status: "error", 
+                message: "Missing required fields: MessageSid, From, or To" 
+            });
+            return;
+        }
+
+        // Only process incoming messages with body
+        if (!payload.Body) {
+            res.json({ status: "ignored", reason: "no message body" });
+            return;
+        }
+
+        // Ignore status updates (delivered, sent, etc.)
+        if (payload.MessageStatus && payload.MessageStatus !== "received") {
+            res.json({ status: "ignored", reason: "status update, not incoming message" });
+            return;
+        }
+
+        const messageText = payload.Body;
+        const fromNumber = payload.From;
+        const toNumber = payload.To;
+
+        console.log(`[${requestId}] Twilio message from ${fromNumber}: "${messageText.substring(0, 50)}..."`);
+
+        // Process with agent
+        const result = await runWorkflow({
+            input_as_text: messageText,
+            conversationId: fromNumber,
+            metadata: {
+                source: "twilio",
+                messageSid: payload.MessageSid,
+                accountSid: payload.AccountSid,
+                from: fromNumber,
+                to: toNumber
+            }
+        });
+
+        // Send response back via Twilio
+        if (result.output_text) {
+            await sendTwilioMessage(fromNumber, toNumber, result.output_text);
+        }
+
+        console.log(`[${requestId}] Response sent to ${fromNumber}`);
+
+        // Twilio expects TwiML response or empty 200
+        res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+
+    } catch (error) {
+        console.error(`[${requestId}] Twilio webhook error:`, error);
+        res.status(500).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+    }
+});
+
 // Legacy endpoint support
 app.post("/chat", handleChat);
 
@@ -320,7 +439,8 @@ app.use((req: Request, res: Response) => {
             "GET /status - Detailed status",
             "POST /api/chat - Main chat endpoint",
             "POST /webhook - Webhook endpoint (n8n)",
-            "POST /webhook/evolution - Evolution API webhook"
+            "POST /webhook/evolution - Evolution API webhook",
+            "POST /webhook/twilio - Twilio API webhook"
         ]
     });
 });
