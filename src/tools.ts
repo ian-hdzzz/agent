@@ -1045,7 +1045,7 @@ IMPORTANTE:
         contrato: z.string().describe("Número de contrato CEA"),
         total_amount: z.number().describe("Monto total a pagar (de get_deuda)"),
         customer_name: z.string().describe("Nombre del cliente"),
-        customer_rfc: z.string().optional().describe("RFC del cliente (opcional, usar XAXX010101000 si no se tiene)")
+        customer_rfc: z.string().optional().nullable().describe("RFC del cliente (opcional, usar XAXX010101000 si no se tiene)")
     }),
     execute: async ({ contrato, total_amount, customer_name, customer_rfc }) => {
         console.log(`[generate_payment_link] Creating payment link for contract: ${contrato}, amount: ${total_amount}`);
