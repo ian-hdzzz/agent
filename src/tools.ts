@@ -1030,7 +1030,7 @@ export const generatePaymentLinkTool = tool({
 CUÁNDO USAR:
 - Cuando el usuario quiera pagar su recibo
 - Después de consultar el saldo con get_deuda
-- Si hay saldo (totalDeuda > 0) usa ese monto; si get_deuda devolvió 0, puedes llamar igual con total_amount=1 para generar link de prueba (QA)
+- Si hay saldo (totalDeuda > 0) usa ese monto; si get_deuda devolvió 0, llama con total_amount=1 para generar el link (monto mínimo)
 
 RETORNA:
 - payment_link: URL para que el cliente realice el pago
@@ -1061,7 +1061,7 @@ IMPORTANTE:
         // Para QA: si el saldo es 0, generar link con monto mínimo 1 MXN para poder probar el flujo
         const amountToCharge = total_amount > 0 ? total_amount : 1;
         if (total_amount <= 0) {
-            console.log(`[generate_payment_link] QA: total_amount=${total_amount}, usando monto mínimo $1 para prueba`);
+            console.log(`[generate_payment_link] total_amount=${total_amount}, usando monto mínimo $1`);
         }
 
         try {
@@ -1213,16 +1213,12 @@ IMPORTANTE:
 
             console.log(`[generate_payment_link] Success! Link: ${paymentLink}`);
 
-            const qaPrueba = total_amount <= 0;
             return {
                 success: true,
                 payment_link: paymentLink,
                 folio: folio,
                 total: amountToCharge,
-                ...(qaPrueba && { qa_prueba: true, mensaje_qa: "Link generado con monto de prueba $1 MXN (saldo reportado era 0)." }),
-                resumen: qaPrueba
-                    ? `✅ Enlace de prueba (QA): ${paymentLink}\nMonto: $${amountToCharge.toFixed(2)} MXN\nFolio: ${folio}\n(Saldo consultado era $0; se usó monto mínimo para probar el flujo.)`
-                    : `✅ Enlace generado: ${paymentLink}\nMonto: $${amountToCharge.toFixed(2)} MXN\nFolio: ${folio}`
+                resumen: `✅ Enlace generado: ${paymentLink}\nMonto: $${amountToCharge.toFixed(2)} MXN\nFolio: ${folio}`
             };
 
         } catch (error) {
