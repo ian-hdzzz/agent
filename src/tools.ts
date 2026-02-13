@@ -1065,35 +1065,83 @@ IMPORTANTE:
         }
 
         try {
-            // 1. Crear cliente en PorCobrar para obtener customer_id válido
-            const createCustomerRes = await fetchWithRetry(
-                `${PORCOBRAR_API_BASE}/v1/customer`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${PORCOBRAR_ACCESS_TOKEN}`
-                    },
-                    body: JSON.stringify({
-                        name: customer_name,
-                        legal_name: customer_name,
-                        tax_profile: customer_rfc || "XAXX010101000",
-                        tax_regime: 616,
-                        agreement: { payment_term: 30 }
-                    })
-                },
-                2,
-                500
-            );
-            if (!createCustomerRes.ok) {
-                const errText = await createCustomerRes.text();
-                console.error(`[generate_payment_link] createCustomer failed: ${createCustomerRes.status}`, errText);
-                return { success: false, error: "No se pudo registrar al cliente para el pago. Intenta más tarde." };
+            // 1. Obtener o crear cliente en PorCobrar (reutilizar si ya existe por legal_name)
+            const legalName = customer_name.trim();
+            const searchUrl = `${PORCOBRAR_API_BASE}/v1/customer?q=${encodeURIComponent(legalName)}`;
+            let customerUUID: string | null = null;
+
+            const listRes = await fetchWithRetry(searchUrl, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${PORCOBRAR_ACCESS_TOKEN}` }
+            }, 1, 0);
+            if (listRes.ok) {
+                const listData = await listRes.json();
+                const list = listData?.data ?? listData;
+                const items = Array.isArray(list) ? list : list?.customers ?? list?.items ?? [];
+                const found = items.find((c: { legal_name?: string; name?: string; uuid?: string }) =>
+                    (c.legal_name && String(c.legal_name).trim() === legalName) ||
+                    (c.name && String(c.name).trim() === legalName)
+                );
+                if (found?.uuid) {
+                    customerUUID = found.uuid;
+                    console.log(`[generate_payment_link] Cliente existente reutilizado: ${customerUUID}`);
+                }
             }
-            const customerData = await createCustomerRes.json();
-            const customerUUID = customerData?.data?.uuid;
+
             if (!customerUUID) {
-                console.error("[generate_payment_link] createCustomer response missing data.uuid", customerData);
+                const createCustomerRes = await fetchWithRetry(
+                    `${PORCOBRAR_API_BASE}/v1/customer`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${PORCOBRAR_ACCESS_TOKEN}`
+                        },
+                        body: JSON.stringify({
+                            name: legalName,
+                            legal_name: legalName,
+                            tax_profile: customer_rfc || "XAXX010101000",
+                            tax_regime: 616,
+                            agreement: { payment_term: 30 }
+                        })
+                    },
+                    2,
+                    500
+                );
+                if (!createCustomerRes.ok) {
+                    const errText = await createCustomerRes.text();
+                    const errJson = (() => { try { return JSON.parse(errText); } catch { return {}; } })();
+                    if (errJson?.code === 169 || (typeof errText === 'string' && errText.includes('legal name exist'))) {
+                        const retryListRes = await fetchWithRetry(searchUrl, {
+                            method: 'GET',
+                            headers: { 'Authorization': `Bearer ${PORCOBRAR_ACCESS_TOKEN}` }
+                        }, 1, 0);
+                        if (retryListRes.ok) {
+                            const retryData = await retryListRes.json();
+                            const retryList = retryData?.data ?? retryData;
+                            const retryItems = Array.isArray(retryList) ? retryList : retryList?.customers ?? retryList?.items ?? [];
+                            const retryFound = retryItems.find((c: { legal_name?: string; name?: string; uuid?: string }) =>
+                                (c.legal_name && String(c.legal_name).trim() === legalName) ||
+                                (c.name && String(c.name).trim() === legalName)
+                            );
+                            if (retryFound?.uuid) {
+                                customerUUID = retryFound.uuid;
+                                console.log(`[generate_payment_link] Cliente ya existía (169), reutilizado: ${customerUUID}`);
+                            }
+                        }
+                    }
+                    if (!customerUUID) {
+                        console.error(`[generate_payment_link] createCustomer failed: ${createCustomerRes.status}`, errText);
+                        return { success: false, error: "No se pudo registrar al cliente para el pago. Intenta más tarde." };
+                    }
+                } else {
+                    const customerData = await createCustomerRes.json();
+                    customerUUID = customerData?.data?.uuid ?? null;
+                }
+            }
+
+            if (!customerUUID) {
+                console.error("[generate_payment_link] No se obtuvo customer UUID");
                 return { success: false, error: "Error al registrar cliente. Intenta más tarde." };
             }
 
