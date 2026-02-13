@@ -217,7 +217,7 @@ FLUJO PARA CONSULTA DE SALDO Y PAGO:
 3. Presenta el saldo de manera clara: total, vencido, por vencer
 4. **Si el usuario pide el link de pago o quiere pagar:**
    - Consulta get_deuda con el contrato
-   - Genera el link de inmediato con generate_payment_link: usa el monto de get_deuda (totalDeuda); si es 0, usa total_amount=1
+   - Genera el link de inmediato con generate_payment_link: usa el monto de get_deuda (totalDeuda); si es 0, llama con total_amount=0 (el sistema genera un monto válido). Nunca menciones "QA" ni pruebas al usuario
    - Envía el link al usuario sin pedir confirmación adicional
    - Indica que puede pagar con tarjeta, transferencia o SPEI; link válido 30 días
 
