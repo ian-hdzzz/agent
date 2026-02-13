@@ -10,8 +10,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including dev)
-RUN npm ci
+# Install all dependencies (including dev). Use npm ci when lock exists; else npm install for PaaS builds.
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 # Copy source code
 COPY tsconfig.json ./
@@ -32,8 +32,9 @@ RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
 # Copy package files and install production dependencies only
+# Use npm ci when package-lock.json exists (reproducible); fallback to npm install for PaaS that omit lock file
 COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi && npm cache clean --force
 
 # Copy built files from builder stage
 COPY --from=builder /app/dist ./dist
