@@ -1016,7 +1016,7 @@ ESTADOS:
 // PorCobrar Configuration
 // ============================================
 
-const PORCOBRAR_API_BASE = process.env.PORCOBRAR_API_URL || "https://api.porcobrar.com";
+const PORCOBRAR_API_BASE = process.env.PORCOBRAR_API_URL || "https://stage.api.porcobrar.com";
 const PORCOBRAR_ACCESS_TOKEN = process.env.PORCOBRAR_ACCESS_TOKEN || "";
 
 /**
@@ -1067,19 +1067,48 @@ IMPORTANTE:
         }
 
         try {
-            // Generar UUID para el cliente (basado en contrato)
-            // En producción, esto debería venir de la base de datos
-            const customerUUID = `cea-${contrato}-${Date.now().toString().slice(-6)}`;
+            // 1. Crear cliente en PorCobrar para obtener customer_id válido
+            const createCustomerRes = await fetchWithRetry(
+                `${PORCOBRAR_API_BASE}/v1/customer`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${PORCOBRAR_ACCESS_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        name: customer_name,
+                        legal_name: customer_name,
+                        tax_profile: customer_rfc || "XAXX010101000",
+                        tax_regime: 616,
+                        agreement: { payment_term: 30 }
+                    })
+                },
+                2,
+                500
+            );
+            if (!createCustomerRes.ok) {
+                const errText = await createCustomerRes.text();
+                console.error(`[generate_payment_link] createCustomer failed: ${createCustomerRes.status}`, errText);
+                return { success: false, error: "No se pudo registrar al cliente para el pago. Intenta más tarde." };
+            }
+            const customerData = await createCustomerRes.json();
+            const customerUUID = customerData?.data?.uuid;
+            if (!customerUUID) {
+                console.error("[generate_payment_link] createCustomer response missing data.uuid", customerData);
+                return { success: false, error: "Error al registrar cliente. Intenta más tarde." };
+            }
 
-            // Calcular fechas
             const now = Math.floor(Date.now() / 1000);
             const dueDate = now + (30 * 24 * 60 * 60); // 30 días
+            const subtotal = Number((total_amount / 1.16).toFixed(2));
+            const tax = Number((total_amount - subtotal).toFixed(2));
+            const itemSubtotal = subtotal;
+            const itemTax = tax;
+            const itemTotal = Number(total_amount.toFixed(2));
+            const taxAmount = tax;
+            const taxBase = subtotal;
 
-            // Calcular impuestos (16% IVA)
-            const subtotal = total_amount / 1.16;
-            const tax = total_amount - subtotal;
-
-            // Construir request body
             const requestBody = {
                 customer: {
                     id: customerUUID,
@@ -1087,29 +1116,51 @@ IMPORTANTE:
                     tax_profile: customer_rfc || "XAXX010101000"
                 },
                 invoice: {
+                    type: "invoice",
                     currency: "MXN",
                     discount: 0,
                     issue_date: now,
                     due_date: dueDate,
-                    subtotal: Number(subtotal.toFixed(2)),
-                    tax: Number(tax.toFixed(2)),
-                    total: Number(total_amount.toFixed(2)),
+                    subtotal,
+                    tax,
+                    total: itemTotal,
                     purchase_order: `CEA-${contrato}`,
                     identifier: `Pago servicio agua - Contrato ${contrato}`,
                     notes: `Pago de servicio de agua. Contrato: ${contrato}`,
+                    observation: "",
+                    terms: 30,
+                    origin: "api",
+                    send_email: false,
+                    attributes: {
+                        cfdi_self_invoicing: false,
+                        cfdi_seal_version: "4.0",
+                        cfdi_payment_method: "PUE",
+                        cfdi_payment_type: 1,
+                        cfdi_payment_conditions: 30
+                    },
                     items: [
                         {
-                            product_key: "90111700", // Servicios de suministro de agua
-                            quantity: 1,
-                            unit_key: "E48", // Servicio
-                            unit_price: Number(subtotal.toFixed(2)),
+                            attributes: { cfdi_code: "90111700", cfdi_unit_code: "E48" },
                             description: `Servicio de agua - Contrato ${contrato}`,
+                            quantity: 1,
+                            unit_id: 3,
+                            price: itemSubtotal,
+                            unit_price: itemSubtotal,
+                            subtotal: itemSubtotal,
+                            typeDiscount: "percent",
                             discount: 0,
-                            tax_object: "02", // Sí objeto de impuesto
+                            tax: itemTax,
+                            total: itemTotal,
+                            tax_object: "02",
                             taxes: [
                                 {
-                                    type: "IVA",
-                                    rate: 0.16
+                                    code: "002",
+                                    name: "IVA 16%",
+                                    amount: 0.16,
+                                    base: taxBase,
+                                    total: taxAmount,
+                                    is_percentage: 1,
+                                    added: 1
                                 }
                             ]
                         }
@@ -1117,7 +1168,7 @@ IMPORTANTE:
                 }
             };
 
-            // Llamar API de PorCobrar con retry
+            // PorCobrar API: v1 path acepta requests (400 si body inválido); v2 paths 404 en stage
             const response = await fetchWithRetry(
                 `${PORCOBRAR_API_BASE}/v1/invoice/invoice`,
                 {
@@ -1134,7 +1185,14 @@ IMPORTANTE:
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error(`[generate_payment_link] API error: ${response.status}`, errorText);
+                let errorDetail: string;
+                try {
+                    const errJson = JSON.parse(errorText);
+                    errorDetail = errJson.message ?? errJson.error ?? errJson.detail ?? errorText;
+                } catch {
+                    errorDetail = errorText || `HTTP ${response.status}`;
+                }
+                console.error(`[generate_payment_link] API error: ${response.status}`, errorDetail);
                 return {
                     success: false,
                     error: `Error al generar enlace de pago (${response.status}). Intenta más tarde.`

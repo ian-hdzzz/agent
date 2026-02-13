@@ -13,6 +13,7 @@
     "test:api": "tsx src/test-api.ts",
     "test:api:verbose": "tsx src/test-api.ts --verbose",
     "test:interactive": "tsx src/test.ts --interactive",
+    "test:porcobrar": "tsx src/test-porcobrar.ts",
     "clean": "rm -rf dist"
   },
   "engines": {
