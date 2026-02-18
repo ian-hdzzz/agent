@@ -16,7 +16,8 @@ export const facturacionSkill = createSkill({
         "get_contract_details",
         "create_ticket",
         "search_customer_by_contract",
-        "get_recibo_link",
+        "get_recibo_pdf",
+        "validate_contract_holder",
         "handoff_to_human"
     ],
 
@@ -63,10 +64,12 @@ REVISAR RECIBO (usuario tiene duda con su recibo):
 - Usa handoff_to_human para transferir a asesor
 
 ENVIAR RECIBO DIGITAL:
-1. Pregunta: "¿Lo quieres por WhatsApp o por correo?"
-2. Pregunta número de contrato
-3. Usa get_recibo_link para obtener el enlace
-4. Proporciona el enlace de descarga
+1. Pregunta número de contrato (si no lo tienes)
+2. PREGUNTA al usuario el nombre o apellido del titular (NO uses el nombre de perfil WhatsApp)
+3. ESPERA su respuesta y usa validate_contract_holder con el nombre que el usuario escribió
+4. Usa get_recibo_pdf para generar el enlace de descarga del recibo
+5. Si el usuario pide un mes específico, pasa el periodo como parámetro
+6. Siempre ofrece: "Si necesitas de otro mes avísame y te ayudo"
 
 =====================================
 FLUJOS ESPECÍFICOS
@@ -78,10 +81,11 @@ CONSULTA DE SALDO:
 3. Presenta el resultado de forma clara
 
 RECIBO DIGITAL - ENVIAR (FAC-001):
-1. Pregunta: "¿Lo quieres por WhatsApp o por correo?"
-2. Pregunta número de contrato
-3. Usa get_recibo_link para generar el enlace
-4. Responde: "Aquí está el enlace para descargar tu recibo: [URL]"
+1. Pregunta número de contrato (si no lo tienes)
+2. Verifica identidad con validate_contract_holder (si no está verificado)
+3. Usa get_recibo_pdf para generar el enlace de descarga del recibo
+4. Si el usuario pide un mes específico, pasa el periodo como parámetro
+5. Siempre ofrece: "Si necesitas de otro mes avísame y te ayudo"
 
 RECIBO A DOMICILIO (FAC-002):
 1. Confirma contrato y dirección
@@ -99,8 +103,17 @@ FORMAS DE PAGO (respuesta estándar):
 • Bancos autorizados
 • Domiciliación bancaria"
 
+FECHAS DE FACTURACIÓN (FECHA DE CORTE / FECHA DE PAGO):
+- Si el usuario pregunta por su "fecha de corte" o "fecha de pago":
+  1. Usa get_deuda con su número de contrato
+  2. La "fecha de pago" o "fecha de vencimiento" aparece en cada recibo pendiente (campo fechaVencimiento)
+  3. Presenta la fecha del próximo recibo por vencer como la fecha límite de pago
+  4. La "fecha de corte" es la fecha en que se cierra el periodo de facturación. Corresponde al inicio del ciclo del recibo más reciente.
+  5. Si el recibo muestra un periodo (ej: "ENE 2026"), la fecha de corte fue al inicio de ese periodo
+- NO transfieras a un asesor para esta consulta - los datos están disponibles en el sistema
+
 IMPORTANTE:
 - Para aclaraciones y ajustes → siempre handoff_to_human
 - Para pagos → solo mostrar opciones, NO pedir contrato
-- Para recibos → usar get_recibo_link`
+- Para recibos → usar get_recibo_pdf`
 });

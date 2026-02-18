@@ -5,6 +5,7 @@
 import { config } from "dotenv";
 config();
 
+import crypto from "crypto";
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { ProxyAgent, fetch as undiciFetch } from "undici";
@@ -12,7 +13,6 @@ import pg from "pg";
 import type {
     CreateTicketInput,
     CreateTicketResult,
-    DeudaResponse,
     ConsumoResponse,
     ContratoResponse,
     CategoryCode,
@@ -109,10 +109,123 @@ export function getMexicoDate(): Date {
 }
 
 // ============================================
+// Recibo PDF - HMAC Token Utilities
+// ============================================
+
+const RECIBO_TOKEN_SECRET = process.env.RECIBO_TOKEN_SECRET || crypto.randomBytes(32).toString("hex");
+const SERVER_BASE_URL = process.env.SERVER_BASE_URL || "https://info-cea.cea-info.workers.dev";
+
+function generateReciboToken(contrato: string, expiresAt: number): string {
+    const payload = `${contrato}:${expiresAt}`;
+    return crypto.createHmac("sha256", RECIBO_TOKEN_SECRET).update(payload).digest("hex");
+}
+
+export function verifyReciboToken(contrato: string, token: string, expires: string): boolean {
+    const expiresAt = parseInt(expires);
+    if (isNaN(expiresAt) || Date.now() > expiresAt) return false;
+    const expected = generateReciboToken(contrato, expiresAt);
+    if (token.length !== expected.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+}
+
+// ============================================
+// Name Matching Utilities (for contract holder verification)
+// ============================================
+
+function normalizeName(name: string): string {
+    return name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Strip diacritical marks (á→a, ñ→n, etc.)
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function bigramSimilarity(a: string, b: string): number {
+    if (a.length < 2 || b.length < 2) return a === b ? 1 : 0;
+
+    const getBigrams = (s: string): Set<string> => {
+        const bigrams = new Set<string>();
+        for (let i = 0; i < s.length - 1; i++) {
+            bigrams.add(s.substring(i, i + 2));
+        }
+        return bigrams;
+    };
+
+    const bigramsA = getBigrams(a);
+    const bigramsB = getBigrams(b);
+    let intersection = 0;
+    for (const bg of bigramsA) {
+        if (bigramsB.has(bg)) intersection++;
+    }
+
+    // Dice coefficient
+    return (2 * intersection) / (bigramsA.size + bigramsB.size);
+}
+
+function matchName(userInput: string, holderName: string): { match: boolean; confidence: number; method: string } {
+    const normalizedInput = normalizeName(userInput);
+    const normalizedHolder = normalizeName(holderName);
+
+    if (!normalizedInput || !normalizedHolder) {
+        return { match: false, confidence: 0, method: "empty" };
+    }
+
+    // 1. Exact full match after normalization
+    if (normalizedInput === normalizedHolder) {
+        return { match: true, confidence: 1.0, method: "exact" };
+    }
+
+    // 2. Substring match (user's input found in holder name)
+    if (normalizedHolder.includes(normalizedInput)) {
+        return { match: true, confidence: 0.9, method: "substring" };
+    }
+
+    // 3. Word-level exact match (any word >=3 chars matches)
+    const inputWords = normalizedInput.split(" ").filter(w => w.length >= 3);
+    const holderWords = normalizedHolder.split(" ").filter(w => w.length >= 3);
+
+    for (const iw of inputWords) {
+        for (const hw of holderWords) {
+            if (iw === hw) {
+                return { match: true, confidence: 0.85, method: "word_match" };
+            }
+        }
+    }
+
+    // 4. Fuzzy word match (Dice >= 0.65 on any word pair)
+    let bestScore = 0;
+    for (const iw of inputWords) {
+        for (const hw of holderWords) {
+            if (iw.length < 5 || hw.length < 5) continue;
+            const score = bigramSimilarity(iw, hw);
+            if (score > bestScore) bestScore = score;
+        }
+    }
+
+    if (bestScore >= 0.75) {
+        return { match: true, confidence: bestScore, method: "fuzzy_word" };
+    }
+
+    // 5. No match
+    return { match: false, confidence: bestScore, method: "none" };
+}
+
+// ============================================
+// Verified Contracts Tracking (per conversation)
+// ============================================
+
+const verifiedContractsMap = new Map<string, Set<string>>();
+
+export function getVerifiedContracts(conversationId: string): Set<string> {
+    return verifiedContractsMap.get(conversationId) || new Set();
+}
+
+// ============================================
 // SOAP Builders
 // ============================================
 
-function buildDeudaSOAP(contrato: string): string {
+function buildDeudaTotalConFacturasSOAP(contrato: string): string {
     return `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:int="http://interfazgenericagestiondeuda.occamcxf.occam.agbar.com/" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
     <soapenv:Header>
         <wsse:Security mustUnderstand="1">
@@ -123,17 +236,37 @@ function buildDeudaSOAP(contrato: string): string {
         </wsse:Security>
     </soapenv:Header>
     <soapenv:Body>
-        <int:getDeuda>
-            <tipoIdentificador>CONTRATO</tipoIdentificador>
-            <valor>${contrato}</valor>
+        <int:getDeudaTotalConFacturas>
+            <contrato>${contrato}</contrato>
             <explotacion>12</explotacion>
             <idioma>es</idioma>
-        </int:getDeuda>
+        </int:getDeudaTotalConFacturas>
     </soapenv:Body>
 </soapenv:Envelope>`;
 }
 
-function buildConsumoSOAP(contrato: string): string {
+function buildDeudaContratoSOAP(contrato: string): string {
+    return `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:int="http://interfazgenericagestiondeuda.occamcxf.occam.agbar.com/" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+    <soapenv:Header>
+        <wsse:Security mustUnderstand="1">
+            <wsse:UsernameToken wsu:Id="UsernameTokenWSGESTIONDEUDA">
+                <wsse:Username>WSGESTIONDEUDA</wsse:Username>
+                <wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText">WSGESTIONDEUDA</wsse:Password>
+            </wsse:UsernameToken>
+        </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+        <int:getDeudaContrato>
+            <tipoIdentificador>CONTRATO</tipoIdentificador>
+            <valor>${contrato}</valor>
+            <explotacion>12</explotacion>
+            <idioma>es</idioma>
+        </int:getDeudaContrato>
+    </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
+function buildConsumoSOAP(contrato: string, explotacion: string = "1"): string {
     return `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:occ="http://occamWS.ejb.negocio.occam.agbar.com" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
     <soapenv:Header>
         <wsse:Security mustUnderstand="1">
@@ -145,7 +278,7 @@ function buildConsumoSOAP(contrato: string): string {
     </soapenv:Header>
     <soapenv:Body>
         <occ:getConsumos>
-            <explotacion>12</explotacion>
+            <explotacion>${explotacion}</explotacion>
             <contrato>${contrato}</contrato>
             <idioma>es</idioma>
         </occ:getConsumos>
@@ -172,7 +305,28 @@ function buildContratoSOAP(contrato: string): string {
 </soapenv:Envelope>`;
 }
 
-function buildFacturasSOAP(contrato: string, explotacion: string = "1"): string {
+function buildPuntoServicioPorContadorSOAP(numeroContador: string): string {
+    return `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:int="http://interfazgenericacontadores.occamcxf.occam.agbar.com/" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+    <soapenv:Header>
+        <wsse:Security mustUnderstand="1">
+            <wsse:UsernameToken wsu:Id="UsernameTokenWSGESTIONDEUDA">
+                <wsse:Username>WSGESTIONDEUDA</wsse:Username>
+                <wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText">WSGESTIONDEUDA</wsse:Password>
+            </wsse:UsernameToken>
+        </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+        <int:getPuntoServicioPorContador>
+            <listaNumSerieContador>${numeroContador}</listaNumSerieContador>
+            <usuario>WSGESTIONDEUDA</usuario>
+            <idioma>es</idioma>
+            <opciones></opciones>
+        </int:getPuntoServicioPorContador>
+    </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
+export function buildGetFacturasSOAP(contrato: string, explotacion: string = "1"): string {
     return `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:occ="http://occamWS.ejb.negocio.occam.agbar.com" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
     <soapenv:Header>
         <wsse:Security mustUnderstand="1">
@@ -192,88 +346,213 @@ function buildFacturasSOAP(contrato: string, explotacion: string = "1"): string 
 </soapenv:Envelope>`;
 }
 
-interface FacturaPendiente {
+export function buildGetPdfFacturaSOAP(numFactura: string, numContrato: string): string {
+    return `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:occ="http://occamWS.ejb.negocio.occam.agbar.com" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+    <soapenv:Header>
+        <wsse:Security mustUnderstand="1">
+            <wsse:UsernameToken wsu:Id="UsernameToken-WSGESTIONDEUDA">
+                <wsse:Username>WSGESTIONDEUDA</wsse:Username>
+                <wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText">WSGESTIONDEUDA</wsse:Password>
+            </wsse:UsernameToken>
+        </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+        <occ:getPdfFactura>
+            <numFactura>${numFactura}</numFactura>
+            <numContrato>${numContrato}</numContrato>
+        </occ:getPdfFactura>
+    </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
+// ============================================
+// Factura Info (for recibo PDF)
+// ============================================
+
+export interface FacturaInfo {
     numero: string;
     periodo: string;
-    fechaEmision: string;
+    periodoTexto: string;
+    año: string;
     importe: number;
-    estado: number; // 2=pendiente, 3=pagado, 4=vencido
+    estado: number;
     estadoTexto: string;
 }
 
-function parseFacturasResponse(xml: string): FacturaPendiente[] {
-    const facturas: FacturaPendiente[] = [];
+const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-    // Match all Factura blocks
-    const facturaMatches = xml.match(/<Factura>[\s\S]*?<\/Factura>/g) || [];
+export function parseGetFacturasResponse(xml: string): { success: boolean; facturas: FacturaInfo[]; error?: string } {
+    try {
+        if (xml.includes("<faultstring>") || xml.includes("<error>")) {
+            const faultMsg = parseXMLValue(xml, "faultstring") || parseXMLValue(xml, "error") || "Error desconocido";
+            return { success: false, facturas: [], error: faultMsg };
+        }
 
-    for (const facturaXml of facturaMatches) {
-        const estado = parseInt(parseXMLValue(facturaXml, "estado") || "0");
+        const facturas: FacturaInfo[] = [];
+        const facturaMatches = xml.match(/<Factura>[\s\S]*?<\/Factura>/g) || [];
 
-        // Only include unpaid invoices (estado 2=pendiente, 4=vencido)
-        if (estado === 2 || estado === 4) {
+        for (const facturaXml of facturaMatches) {
+            const estado = parseInt(parseXMLValue(facturaXml, "estado") || "0");
             const periodo = parseXMLValue(facturaXml, "periodo") || "";
             const año = parseXMLValue(facturaXml, "año") || "";
-
-            // Map periodo number to month name
-            const meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-                          "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-            const periodoTexto = `${meses[parseInt(periodo)] || periodo} ${año}`;
+            const periodoTexto = `${MESES[parseInt(periodo)] || periodo} ${año}`;
 
             facturas.push({
                 numero: parseXMLValue(facturaXml, "numero") || "",
-                periodo: periodoTexto,
-                fechaEmision: parseXMLValue(facturaXml, "fechaEmision") || "",
+                periodo,
+                periodoTexto,
+                año,
                 importe: parseFloat(parseXMLValue(facturaXml, "importeTotal") || "0"),
                 estado,
-                estadoTexto: estado === 4 ? "vencido" : "pendiente"
+                estadoTexto: estado === 4 ? "vencido" : estado === 2 ? "pendiente" : "pagado"
             });
         }
-    }
 
-    return facturas;
+        return { success: true, facturas };
+    } catch (error) {
+        return { success: false, facturas: [], error: `Error parsing facturas: ${error}` };
+    }
+}
+
+// ============================================
+// Recibo PDF Fetcher
+// ============================================
+
+export async function fetchReciboPdf(contrato: string, numFactura?: string): Promise<Buffer | null> {
+    try {
+        // If no invoice number provided, get the latest from getFacturas
+        let facturaNum = numFactura;
+        if (!facturaNum) {
+            console.log(`[fetchReciboPdf] No factura number, fetching latest for contract ${contrato}`);
+            let parsed: { success: boolean; facturas: FacturaInfo[]; error?: string } = { success: false, facturas: [] };
+            for (const explotacion of ["1", "12"]) {
+                const facturasResponse = await fetchWithRetry(
+                    `${CEA_API_BASE}/InterfazOficinaVirtualClientesWS`,
+                    { method: 'POST', headers: { 'Content-Type': 'text/xml;charset=UTF-8' }, body: buildGetFacturasSOAP(contrato, explotacion) }
+                );
+                const facturasXml = await facturasResponse.text();
+                parsed = parseGetFacturasResponse(facturasXml);
+                if (parsed.success && parsed.facturas.length > 0) {
+                    console.log(`[fetchReciboPdf] Found ${parsed.facturas.length} facturas with explotacion=${explotacion}`);
+                    break;
+                }
+            }
+            if (!parsed.success || parsed.facturas.length === 0) {
+                console.log(`[fetchReciboPdf] No facturas found for contract ${contrato}`);
+                return null;
+            }
+            // Get the most recent factura (first in list)
+            facturaNum = parsed.facturas[0].numero;
+            console.log(`[fetchReciboPdf] Using latest factura: ${facturaNum}`);
+        }
+
+        // Fetch the PDF
+        console.log(`[fetchReciboPdf] Fetching PDF for factura ${facturaNum}, contrato ${contrato}`);
+        const pdfResponse = await fetchWithRetry(
+            `${CEA_API_BASE}/InterfazGenericaContratacionWS`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+                body: buildGetPdfFacturaSOAP(facturaNum, contrato)
+            }
+        );
+        const pdfXml = await pdfResponse.text();
+
+        // Extract base64 PDF from <pdf> tag (or legacy <return> tag)
+        const base64Match = pdfXml.match(/<pdf>([^<]+)<\/pdf>/) || pdfXml.match(/<return[^>]*>([^<]+)<\/return>/);
+        if (!base64Match || !base64Match[1]) {
+            console.log(`[fetchReciboPdf] No PDF data in response. Response (first 500 chars): ${pdfXml.substring(0, 500)}`);
+            return null;
+        }
+
+        console.log(`[fetchReciboPdf] Got PDF data, ${base64Match[1].length} base64 chars`);
+        return Buffer.from(base64Match[1], 'base64');
+    } catch (error) {
+        console.error(`[fetchReciboPdf] Error:`, error);
+        return null;
+    }
+}
+
+interface FacturaPendiente {
+    numero: string;
+    periodo: string;
+    fechaVencimiento: string;
+    importe: number;
+    estado: string;
+    estadoTexto: string;
+    referenciaPago: string;
 }
 
 // ============================================
 // Response Parsers
 // ============================================
 
-function parseDeudaResponse(xml: string): DeudaResponse {
+function parseDeudaTotalConFacturasResponse(xml: string): {
+    success: boolean;
+    totalDeuda?: number;
+    cantidadFacturas?: number;
+    nombreCliente?: string;
+    facturas?: FacturaPendiente[];
+    error?: string;
+} {
     try {
         if (xml.includes("<faultstring>") || xml.includes("<error>")) {
             const faultMsg = parseXMLValue(xml, "faultstring") || parseXMLValue(xml, "error") || "Error desconocido";
-            return { success: false, error: faultMsg, rawResponse: xml };
+            return { success: false, error: faultMsg };
         }
 
-        const totalDeuda = parseFloat(parseXMLValue(xml, "deudaTotal") || parseXMLValue(xml, "importeTotal") || parseXMLValue(xml, "totalDeuda") || "0");
-        const vencido = parseFloat(parseXMLValue(xml, "saldoAnteriorTotal") || parseXMLValue(xml, "importeVencido") || "0");
-        const porVencer = parseFloat(parseXMLValue(xml, "deuda") || parseXMLValue(xml, "importePorVencer") || "0");
+        const totalDeuda = parseFloat(parseXMLValue(xml, "deudaTotal") || "0");
+        const cantidadFacturas = parseInt(parseXMLValue(xml, "cantidadFacturas") || "0");
+        const nombreCliente = parseXMLValue(xml, "nombreCliente") || "";
 
-        const conceptos: Array<{
-            periodo: string;
-            concepto: string;
-            monto: number;
-            fechaVencimiento: string;
-            estado: "vencido" | "por_vencer";
-        }> = [];
-        const conceptoMatches = xml.match(/<concepto>[\s\S]*?<\/concepto>/gi) || [];
+        const facturas: FacturaPendiente[] = [];
+        const facturaMatches = xml.match(/<(?:factura|datosFacturaDeuda)>[\s\S]*?<\/(?:factura|datosFacturaDeuda)>/gi) || [];
 
-        for (const conceptoXml of conceptoMatches) {
-            conceptos.push({
-                periodo: parseXMLValue(conceptoXml, "periodo") || "",
-                concepto: parseXMLValue(conceptoXml, "descripcion") || "",
-                monto: parseFloat(parseXMLValue(conceptoXml, "importe") || "0"),
-                fechaVencimiento: parseXMLValue(conceptoXml, "fechaVencimiento") || "",
-                estado: "por_vencer"
+        for (const facturaXml of facturaMatches) {
+            const estado = parseXMLValue(facturaXml, "estado") || "";
+            const codigoEstado = parseXMLValue(facturaXml, "codigoEstado") || "";
+            const isVencido = estado.toLowerCase().includes("vencid") || codigoEstado === "4";
+
+            facturas.push({
+                numero: parseXMLValue(facturaXml, "numFactura") || "",
+                periodo: parseXMLValue(facturaXml, "ciclo") || "",
+                fechaVencimiento: parseXMLValue(facturaXml, "fechaVencimiento") || "",
+                importe: parseFloat(parseXMLValue(facturaXml, "importeTotal") || "0"),
+                estado: codigoEstado || estado,
+                estadoTexto: isVencido ? "vencido" : "pendiente",
+                referenciaPago: parseXMLValue(facturaXml, "referenciaPago") || "",
             });
         }
 
-        return {
-            success: true,
-            data: { totalDeuda, vencido, porVencer, conceptos }
-        };
+        return { success: true, totalDeuda, cantidadFacturas, nombreCliente, facturas };
     } catch (error) {
-        return { success: false, error: `Error parsing response: ${error}`, rawResponse: xml };
+        return { success: false, error: `Error parsing response: ${error}` };
+    }
+}
+
+function parseDeudaContratoResponse(xml: string): {
+    success: boolean;
+    totalDeuda?: number;
+    direccion?: string;
+    nombreCliente?: string;
+    mensaje?: string;
+    error?: string;
+} {
+    try {
+        if (xml.includes("<faultstring>") || xml.includes("<error>")) {
+            const faultMsg = parseXMLValue(xml, "faultstring") || parseXMLValue(xml, "error") || "Error desconocido";
+            return { success: false, error: faultMsg };
+        }
+
+        const totalDeuda = parseFloat(parseXMLValue(xml, "deuda") || parseXMLValue(xml, "deudaTotal") || "0");
+        const direccion = parseXMLValue(xml, "direccion") || "";
+        const nombreCliente = parseXMLValue(xml, "nombreCliente") || "";
+        const mensaje = parseXMLValue(xml, "descripcionMensaje") || "";
+
+        return { success: true, totalDeuda, direccion, nombreCliente, mensaje };
+    } catch (error) {
+        return { success: false, error: `Error parsing response: ${error}` };
     }
 }
 
@@ -345,12 +624,29 @@ function parseConsumoResponse(xml: string): ConsumoResponse {
     }
 }
 
+function mapEstadoContrato(raw: string): 'activo' | 'suspendido' | 'cortado' {
+    const map: Record<string, 'activo' | 'suspendido' | 'cortado'> = {
+        '1': 'activo',
+        '2': 'cortado',
+        'activo': 'activo',
+        'suspendido': 'suspendido',
+        'cortado': 'cortado',
+    };
+    return map[raw.toLowerCase()] || 'activo';
+}
+
 function parseContratoResponse(xml: string): ContratoResponse {
     try {
         if (xml.includes("<faultstring>") || xml.includes("<error>")) {
             const faultMsg = parseXMLValue(xml, "faultstring") || parseXMLValue(xml, "error") || "Error desconocido";
             return { success: false, error: faultMsg };
         }
+
+        // Debug: log raw estado value and surrounding XML to diagnose tag name
+        const rawEstado = parseXMLValue(xml, "estado");
+        console.log(`[parseContratoResponse] Raw estado: "${rawEstado}"`);
+        const estadoSnippet = xml.match(/estado[^<]*<[^>]+>[^<]*/gi);
+        console.log(`[parseContratoResponse] Estado XML matches: ${JSON.stringify(estadoSnippet)}`);
 
         // Build address from calle + numero (API uses these tags, not "direccion")
         const calle = parseXMLValue(xml, "calle") || "";
@@ -366,13 +662,50 @@ function parseContratoResponse(xml: string): ContratoResponse {
                 colonia: parseXMLValue(xml, "municipio") || parseXMLValue(xml, "colonia") || "",
                 codigoPostal: parseXMLValue(xml, "codigoPostal") || parseXMLValue(xml, "cp") || "",
                 tarifa: parseXMLValue(xml, "descUso") || parseXMLValue(xml, "tarifa") || "",
-                estado: (parseXMLValue(xml, "estado") || "activo") as 'activo' | 'suspendido' | 'cortado',
+                estado: mapEstadoContrato(parseXMLValue(xml, "estadoContador") || parseXMLValue(xml, "estado") || ""),
                 fechaAlta: parseXMLValue(xml, "fechaAlta") || "",
                 ultimaLectura: parseXMLValue(xml, "ultimaLectura") || undefined
             }
         };
     } catch (error) {
         return { success: false, error: `Error parsing response: ${error}` };
+    }
+}
+
+function parsePuntoServicioEstado(xml: string): 'activo' | 'suspendido' | 'cortado' | null {
+    try {
+        const raw = parseXMLValue(xml, "estadoPuntoServicio");
+        if (!raw) return null;
+        const normalized = raw.trim().toUpperCase();
+        if (normalized.includes("CORTADO")) return 'cortado';
+        if (normalized.includes("SUSPENDIDO")) return 'suspendido';
+        if (normalized.includes("ACTIVO")) return 'activo';
+        console.log(`[parsePuntoServicioEstado] Unrecognized value: "${raw}"`);
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+async function fetchPuntoServicioEstado(numeroContador: string): Promise<'activo' | 'suspendido' | 'cortado' | null> {
+    try {
+        console.log(`[fetchPuntoServicioEstado] Calling API for contador: ${numeroContador}`);
+        const response = await fetchWithRetry(
+            `${CEA_API_BASE}/InterfazGenericaContadoresWS`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+                body: buildPuntoServicioPorContadorSOAP(numeroContador)
+            }
+        );
+        const xml = await response.text();
+        console.log(`[fetchPuntoServicioEstado] Response (first 500): ${xml.substring(0, 500)}`);
+        const result = parsePuntoServicioEstado(xml);
+        console.log(`[fetchPuntoServicioEstado] Parsed estado: ${result}`);
+        return result;
+    } catch (e) {
+        console.log(`[fetchPuntoServicioEstado] Error: ${e instanceof Error ? e.message : e}`);
+        return null;
     }
 }
 
@@ -555,7 +888,7 @@ RETORNA:
 - totalDeuda: Total a pagar
 - vencido: Monto vencido
 - porVencer: Monto por vencer
-- conceptos: Desglose de adeudos
+- facturas: Desglose de facturas pendientes
 
 Usa este tool cuando el usuario pregunte por su saldo, deuda, cuánto debe, o quiera pagar.`,
     {
@@ -565,94 +898,164 @@ Usa este tool cuando el usuario pregunte por su saldo, deuda, cuánto debe, o qu
         console.log(`[get_deuda] Fetching debt for contract: ${contrato}`);
 
         try {
-            const response = await fetchWithRetry(
+            // Step 1: getDeudaContrato (PRIMARY — same params as old working getDeuda)
+            console.log(`[get_deuda] Calling getDeudaContrato (primary)...`);
+            const primaryResponse = await fetchWithRetry(
                 `${CEA_API_BASE}/InterfazGenericaGestionDeudaWS`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
-                    body: buildDeudaSOAP(contrato)
+                    body: buildDeudaContratoSOAP(contrato)
                 }
             );
+            const primaryXml = await primaryResponse.text();
+            console.log(`[get_deuda] Primary response (first 500 chars):`, primaryXml.substring(0, 500));
+            const primaryParsed = parseDeudaContratoResponse(primaryXml);
+            console.log(`[get_deuda] Primary parsed:`, JSON.stringify(primaryParsed));
 
-            const xml = await response.text();
-            console.log(`[get_deuda] Raw XML response (first 500 chars):`, xml.substring(0, 500));
-            const parsed = parseDeudaResponse(xml);
-            console.log(`[get_deuda] Parsed result:`, JSON.stringify(parsed));
+            if (primaryParsed.success && (primaryParsed.totalDeuda ?? 0) > 0) {
+                const { totalDeuda = 0, nombreCliente, direccion } = primaryParsed;
 
-            if (!parsed.success) {
+                // Step 2: Try getDeudaTotalConFacturas for invoice breakdown (ENRICHMENT)
+                let facturas: FacturaPendiente[] = [];
+                let vencido = 0;
+                let porVencer = 0;
+                try {
+                    console.log(`[get_deuda] Enriching with getDeudaTotalConFacturas...`);
+                    const enrichResponse = await fetchWithRetry(
+                        `${CEA_API_BASE}/InterfazGenericaGestionDeudaWS`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+                            body: buildDeudaTotalConFacturasSOAP(contrato)
+                        }
+                    );
+                    const enrichXml = await enrichResponse.text();
+                    const enrichParsed = parseDeudaTotalConFacturasResponse(enrichXml);
+                    if (enrichParsed.success && (enrichParsed.facturas?.length ?? 0) > 0) {
+                        facturas = enrichParsed.facturas!;
+                        for (const f of facturas) {
+                            if (f.estadoTexto === "vencido") vencido += f.importe;
+                            else porVencer += f.importe;
+                        }
+                        console.log(`[get_deuda] Enrichment: ${facturas.length} invoices found`);
+                    }
+                } catch (e) {
+                    console.log(`[get_deuda] Enrichment failed, continuing with totals only`);
+                }
+
+                // Build formatted response
+                let formattedResponse = `Estado de cuenta del contrato ${contrato}:\n\n`;
+                formattedResponse += `💰 **Total a pagar: $${totalDeuda.toFixed(2)}**\n`;
+                if (nombreCliente) formattedResponse += `👤 Cliente: ${nombreCliente}\n`;
+
+                if (facturas.length > 0) {
+                    if (vencido > 0) {
+                        formattedResponse += `🔴 Vencido: $${vencido.toFixed(2)}\n`;
+                    }
+                    if (porVencer > 0) {
+                        formattedResponse += `🟡 Por vencer: $${porVencer.toFixed(2)}\n`;
+                    }
+
+                    formattedResponse += `\n📋 **Recibos pendientes:**\n`;
+                    for (const factura of facturas) {
+                        const emoji = factura.estadoTexto === "vencido" ? "🔴" : "🟡";
+                        const label = factura.periodo || factura.numero;
+                        const venceInfo = factura.fechaVencimiento ? ` - Vence: ${factura.fechaVencimiento}` : "";
+                        formattedResponse += `${emoji} ${label}: $${factura.importe.toFixed(2)} (${factura.estadoTexto})${venceInfo}\n`;
+                    }
+                }
+
                 return { content: [{ type: "text" as const, text: JSON.stringify({
-                    success: false,
-                    error: parsed.error,
-                    formatted_response: `No encontré información de adeudo para el contrato ${contrato}. ¿Puedes verificar el número?`
+                    success: true,
+                    formatted_response: formattedResponse,
+                    data: {
+                        contrato,
+                        totalDeuda,
+                        vencido,
+                        porVencer,
+                        nombreCliente,
+                        facturas
+                    }
                 }) }] };
             }
 
-            const data = parsed.data!;
-
-            // If there's pending debt, fetch invoice details for breakdown
-            let facturas: FacturaPendiente[] = [];
-            let vencidoCalculado = 0;
-            let porVencerCalculado = 0;
-
-            if (data.totalDeuda > 0) {
-                console.log(`[get_deuda] Debt found, fetching invoice details...`);
-
-                // Try with explotacion=1 first (most common)
-                const facturasResponse = await fetchWithRetry(
-                    `${CEA_API_BASE}/InterfazOficinaVirtualClientesWS`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
-                        body: buildFacturasSOAP(contrato, "1")
-                    }
-                );
-
-                const facturasXml = await facturasResponse.text();
-                facturas = parseFacturasResponse(facturasXml);
-                console.log(`[get_deuda] Found ${facturas.length} pending invoices`);
-
-                // Calculate vencido and porVencer from invoices
-                for (const factura of facturas) {
-                    if (factura.estado === 4) {
-                        vencidoCalculado += factura.importe;
-                    } else if (factura.estado === 2) {
-                        porVencerCalculado += factura.importe;
-                    }
-                }
+            // Primary returned 0 debt — genuinely no debt from the reliable endpoint
+            if (primaryParsed.success && (primaryParsed.totalDeuda ?? 0) === 0) {
+                return { content: [{ type: "text" as const, text: JSON.stringify({
+                    success: true,
+                    formatted_response: `Tu contrato ${contrato} no tiene adeudos pendientes.`,
+                    data: { contrato, totalDeuda: 0, mensaje: "sin adeudo" }
+                }) }] };
             }
 
-            // Build formatted response with invoice breakdown
-            let formattedResponse = `Estado de cuenta del contrato ${contrato}:\n\n`;
-            formattedResponse += `💰 **Total a pagar: $${data.totalDeuda.toFixed(2)}**\n`;
+            // Primary failed entirely — try getDeudaTotalConFacturas as last resort
+            console.log(`[get_deuda] Primary failed (${primaryParsed.error}), trying getDeudaTotalConFacturas fallback...`);
 
-            if (facturas.length > 0) {
-                if (vencidoCalculado > 0) {
-                    formattedResponse += `🔴 Vencido: $${vencidoCalculado.toFixed(2)}\n`;
+            const fallbackResponse = await fetchWithRetry(
+                `${CEA_API_BASE}/InterfazGenericaGestionDeudaWS`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+                    body: buildDeudaTotalConFacturasSOAP(contrato)
                 }
-                if (porVencerCalculado > 0) {
-                    formattedResponse += `🟡 Por vencer: $${porVencerCalculado.toFixed(2)}\n`;
+            );
+
+            const fallbackXml = await fallbackResponse.text();
+            console.log(`[get_deuda] Fallback response (first 500 chars):`, fallbackXml.substring(0, 500));
+            const fallbackParsed = parseDeudaTotalConFacturasResponse(fallbackXml);
+            console.log(`[get_deuda] Fallback parsed:`, JSON.stringify(fallbackParsed));
+
+            if (fallbackParsed.success) {
+                const { totalDeuda = 0, facturas = [], nombreCliente } = fallbackParsed;
+
+                if (facturas.length === 0 && totalDeuda === 0) {
+                    return { content: [{ type: "text" as const, text: JSON.stringify({
+                        success: true,
+                        formatted_response: `Tu contrato ${contrato} está en proceso de facturación. En cuanto se complete, podrás consultar tu saldo actualizado.`,
+                        data: { contrato, totalDeuda: 0, mensaje: "proceso de facturación" }
+                    }) }] };
                 }
 
-                formattedResponse += `\n📋 **Recibos pendientes:**\n`;
-                for (const factura of facturas) {
-                    const emoji = factura.estado === 4 ? "🔴" : "🟡";
-                    formattedResponse += `${emoji} ${factura.periodo}: $${factura.importe.toFixed(2)} (${factura.estadoTexto})\n`;
+                let vencido = 0;
+                let porVencer = 0;
+                for (const f of facturas) {
+                    if (f.estadoTexto === "vencido") vencido += f.importe;
+                    else porVencer += f.importe;
                 }
-            } else {
-                formattedResponse += `Vencido: $${data.vencido.toFixed(2)}\n`;
-                formattedResponse += `Por vencer: $${data.porVencer.toFixed(2)}\n`;
+
+                let formattedResponse = `Estado de cuenta del contrato ${contrato}:\n\n`;
+                formattedResponse += `💰 **Total a pagar: $${totalDeuda.toFixed(2)}**\n`;
+
+                if (facturas.length > 0) {
+                    if (vencido > 0) {
+                        formattedResponse += `🔴 Vencido: $${vencido.toFixed(2)}\n`;
+                    }
+                    if (porVencer > 0) {
+                        formattedResponse += `🟡 Por vencer: $${porVencer.toFixed(2)}\n`;
+                    }
+
+                    formattedResponse += `\n📋 **Recibos pendientes:**\n`;
+                    for (const factura of facturas) {
+                        const emoji = factura.estadoTexto === "vencido" ? "🔴" : "🟡";
+                        const label = factura.periodo || factura.numero;
+                        const venceInfo = factura.fechaVencimiento ? ` - Vence: ${factura.fechaVencimiento}` : "";
+                        formattedResponse += `${emoji} ${label}: $${factura.importe.toFixed(2)} (${factura.estadoTexto})${venceInfo}\n`;
+                    }
+                }
+
+                return { content: [{ type: "text" as const, text: JSON.stringify({
+                    success: true,
+                    formatted_response: formattedResponse,
+                    data: { contrato, totalDeuda, vencido, porVencer, nombreCliente, facturas }
+                }) }] };
             }
 
+            // Both calls failed
             return { content: [{ type: "text" as const, text: JSON.stringify({
-                success: true,
-                formatted_response: formattedResponse,
-                data: {
-                    contrato,
-                    totalDeuda: data.totalDeuda,
-                    vencido: vencidoCalculado || data.vencido,
-                    porVencer: porVencerCalculado || data.porVencer,
-                    facturas: facturas
-                }
+                success: false,
+                error: fallbackParsed.error,
+                formatted_response: `No encontré información de adeudo para el contrato ${contrato}. ¿Puedes verificar el número?`
             }) }] };
         } catch (error) {
             console.error(`[get_deuda] Error:`, error);
@@ -697,17 +1100,30 @@ Si el usuario pide un año específico (ej: "consumo de 2022"), usa el parámetr
         console.log(`[get_consumo] Fetching consumption for contract: ${contrato}, year: ${year || 'all'}`);
 
         try {
-            const response = await fetchWithRetry(
-                `${CEA_API_BASE}/InterfazOficinaVirtualClientesWS`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
-                    body: buildConsumoSOAP(contrato)
-                }
-            );
+            // Try explotacion=1 first (most common), then 12 if no data
+            const explotaciones = ["1", "12"];
+            let parsed: ConsumoResponse = { success: false, error: "No data found" };
 
-            const xml = await response.text();
-            const parsed = parseConsumoResponse(xml);
+            for (const explotacion of explotaciones) {
+                console.log(`[get_consumo] Trying explotacion=${explotacion}`);
+                const response = await fetchWithRetry(
+                    `${CEA_API_BASE}/InterfazOficinaVirtualClientesWS`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+                        body: buildConsumoSOAP(contrato, explotacion)
+                    }
+                );
+
+                const xml = await response.text();
+                parsed = parseConsumoResponse(xml);
+
+                // If we got data, break out of the loop
+                if (parsed.success && parsed.data && parsed.data.consumos.length > 0) {
+                    console.log(`[get_consumo] Found ${parsed.data.consumos.length} records with explotacion=${explotacion}`);
+                    break;
+                }
+            }
 
             if (!parsed.success) {
                 return { content: [{ type: "text" as const, text: JSON.stringify({ error: parsed.error, success: false }) }] };
@@ -811,6 +1227,23 @@ Usa para validar un contrato o conocer detalles del servicio.`,
                 }) }] };
             }
 
+            // ENRICHMENT: Get real service status from punto de servicio
+            const numeroContador = parseXMLValue(xml, "numeroContador");
+            console.log(`[get_contract_details] numeroContador from XML: ${numeroContador}`);
+            if (numeroContador && parsed.data) {
+                try {
+                    const psEstado = await fetchPuntoServicioEstado(numeroContador);
+                    if (psEstado) {
+                        console.log(`[get_contract_details] Punto servicio enrichment: ${parsed.data.estado} -> ${psEstado}`);
+                        parsed.data.estado = psEstado;
+                    }
+                } catch (e) {
+                    console.log(`[get_contract_details] Punto servicio enrichment failed, using default status`);
+                }
+            } else {
+                console.log(`[get_contract_details] Enrichment skipped: numeroContador=${numeroContador}`);
+            }
+
             // Generate formatted response using template
             const data = parsed.data!;
             const formattedResponse = renderTemplate("contract_info", {
@@ -880,6 +1313,39 @@ IMPORTANTE: Siempre incluye el folio en tu respuesta al usuario.`,
             .describe("Prioridad del ticket")
     },
     async (input) => {
+        // Defense: check service status before creating REP tickets with a contract
+        if (input.category_code === "REP" && input.contract_number) {
+            try {
+                const contratoResponse = await fetchWithRetry(
+                    `${CEA_API_BASE}/InterfazGenericaContratacionWS`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+                        body: buildContratoSOAP(input.contract_number)
+                    }
+                );
+                const contratoXml = await contratoResponse.text();
+                const contadorTag = parseXMLValue(contratoXml, "numeroContador");
+                if (contadorTag) {
+                    const estado = await fetchPuntoServicioEstado(contadorTag);
+                    if (estado === 'cortado' || estado === 'suspendido') {
+                        console.log(`[create_ticket] BLOCKED: Contract ${input.contract_number} is ${estado}`);
+                        return { content: [{ type: "text" as const, text: JSON.stringify({
+                            success: false,
+                            blocked: true,
+                            estado,
+                            formatted_response: `Tu servicio se encuentra ${estado} por falta de pago. Para reactivarlo:\n\n` +
+                                `- En línea: https://appcea.ceaqueretaro.gob.mx/PagoEnLinea/\n` +
+                                `- Sucursales CEA\n- Oxxo (con tu recibo)\n- Bancos autorizados\n\n` +
+                                `Una vez realizado el pago, tu servicio se restablece en un plazo de 24-48 horas.`
+                        }) }] };
+                    }
+                }
+            } catch (e) {
+                console.log(`[create_ticket] Status check failed, proceeding with ticket creation`);
+            }
+        }
+
         const ticketInput: CreateTicketInput = {
             category_code: input.category_code,
             subcategory_code: input.subcategory_code as any,
@@ -1220,41 +1686,213 @@ IMPORTANTE: Los IDs de conversación y cuenta se pasan en el contexto del sistem
 );
 
 // ============================================
-// GET RECIBO LINK - Returns download link for digital receipt
+// GET RECIBO PDF - Generates signed download link for receipt PDF
 // ============================================
 
-export const getReciboLinkTool = tool(
-    "get_recibo_link",
-    `Genera el enlace para descargar el recibo digital de un contrato.
+export const getReciboPdfTool = tool(
+    "get_recibo_pdf",
+    `Genera un enlace seguro para descargar el recibo digital (PDF) de un contrato.
 
 USA ESTA HERRAMIENTA CUANDO:
 - El usuario pida que le envíen su recibo digital
 - El usuario quiera descargar su recibo
 - El usuario pregunte cómo obtener su recibo
 
-FLUJO:
-1. Pregunta si lo quiere por WhatsApp o por correo
-2. Si WhatsApp: Proporciona el enlace directamente
-3. Si correo: Indica que se enviará al correo registrado`,
+PARÁMETROS:
+- contrato: Número de contrato CEA (requerido)
+- periodo: Mes específico si el usuario pide un recibo de un mes en particular (opcional, ej: "enero", "febrero 2025")
+
+El enlace es válido por 48 horas. Siempre ofrece: "Si necesitas de otro mes avísame y te ayudo"`,
     {
-        contract_number: z.string().describe("Número de contrato CEA")
+        contrato: z.string().describe("Número de contrato CEA"),
+        periodo: z.string().optional().describe("Periodo específico si el usuario pide un mes en particular (ej: 'enero', 'febrero 2025')")
     },
-    async ({ contract_number }) => {
-        console.log(`[get_recibo_link] Generating link for contract: ${contract_number}`);
+    async ({ contrato, periodo }) => {
+        console.log(`[get_recibo_pdf] Generating PDF link for contract: ${contrato}, periodo: ${periodo || 'latest'}`);
 
-        const downloadUrl = `https://ceaqro.gob.mx/consulta-recibo?contrato=${contract_number}`;
+        try {
+            // Call getFacturas to verify invoices exist and find the right one
+            // Try explotacion=1 first, then fallback to explotacion=12
+            let parsed: { success: boolean; facturas: FacturaInfo[]; error?: string } = { success: false, facturas: [] };
+            for (const explotacion of ["1", "12"]) {
+                const facturasResponse = await fetchWithRetry(
+                    `${CEA_API_BASE}/InterfazOficinaVirtualClientesWS`,
+                    { method: 'POST', headers: { 'Content-Type': 'text/xml;charset=UTF-8' }, body: buildGetFacturasSOAP(contrato, explotacion) }
+                );
+                const facturasXml = await facturasResponse.text();
+                parsed = parseGetFacturasResponse(facturasXml);
+                if (parsed.success && parsed.facturas.length > 0) {
+                    console.log(`[get_recibo_pdf] Found ${parsed.facturas.length} facturas with explotacion=${explotacion}`);
+                    break;
+                }
+            }
 
-        return {
-            content: [{
-                type: "text" as const,
-                text: JSON.stringify({
-                    success: true,
-                    contract_number,
-                    download_url: downloadUrl,
-                    formatted_response: `Aquí está el enlace para descargar tu recibo digital:\n\n🔗 ${downloadUrl}\n\nTambién puedes consultar tu recibo en la página oficial de CEA Querétaro.`
-                })
-            }]
-        };
+            if (!parsed.success || parsed.facturas.length === 0) {
+                return { content: [{ type: "text" as const, text: JSON.stringify({
+                    success: false,
+                    formatted_response: `No encontré recibos disponibles para el contrato ${contrato}. ¿Puedes verificar el número de contrato?`
+                }) }] };
+            }
+
+            // Find the target factura
+            let targetFactura = parsed.facturas[0]; // default: most recent
+
+            if (periodo) {
+                const periodoLower = periodo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const matchingFactura = parsed.facturas.find(f => {
+                    const textoLower = f.periodoTexto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    return textoLower.includes(periodoLower) || periodoLower.includes(textoLower);
+                });
+
+                if (!matchingFactura) {
+                    const availablePeriods = parsed.facturas.map(f => f.periodoTexto).join(", ");
+                    return { content: [{ type: "text" as const, text: JSON.stringify({
+                        success: false,
+                        formatted_response: `No encontré un recibo para "${periodo}". Los recibos disponibles son: ${availablePeriods}. ¿De cuál mes necesitas el recibo?`
+                    }) }] };
+                }
+                targetFactura = matchingFactura;
+            }
+
+            // Generate signed URL (48h expiry)
+            const expiresAt = Date.now() + 48 * 60 * 60 * 1000;
+            const token = generateReciboToken(contrato, expiresAt);
+            const downloadUrl = `${SERVER_BASE_URL}/recibo/${contrato}?token=${token}&expires=${expiresAt}&factura=${targetFactura.numero}`;
+
+            const formattedResponse = `Aquí está tu recibo de *${targetFactura.periodoTexto}* del contrato ${contrato}:\n\n` +
+                `📄 ${downloadUrl}\n\n` +
+                `El enlace es válido por 48 horas. Si necesitas de otro mes avísame y te ayudo.`;
+
+            return { content: [{ type: "text" as const, text: JSON.stringify({
+                success: true,
+                formatted_response: formattedResponse,
+                data: {
+                    contrato,
+                    factura: targetFactura.numero,
+                    periodo: targetFactura.periodoTexto,
+                    download_url: downloadUrl
+                }
+            }) }] };
+        } catch (error) {
+            console.error(`[get_recibo_pdf] Error:`, error);
+            return { content: [{ type: "text" as const, text: JSON.stringify({
+                success: false,
+                formatted_response: "No se pudo generar el enlace del recibo en este momento. ¿Puedes intentar en unos minutos?"
+            }) }] };
+        }
+    }
+);
+
+// ============================================
+// VALIDATE CONTRACT HOLDER - Name verification before showing data
+// ============================================
+
+export const validateContractHolderTool = tool(
+    "validate_contract_holder",
+    `Valida la identidad del usuario comparando el nombre proporcionado con el titular del contrato.
+
+USA ESTA HERRAMIENTA ANTES de mostrar datos sensibles (saldo, detalles, consumo, tickets) de un contrato.
+
+PARÁMETROS:
+- contrato: Número de contrato CEA
+- nombre_proporcionado: Nombre o apellido que el usuario proporcionó
+
+RETORNA:
+- validated: true si el nombre coincide con el titular
+- validated: false si no coincide
+- skipped: true si no se pudo verificar (sin datos de titular o error de API)`,
+    {
+        contrato: z.string().describe("Número de contrato CEA"),
+        nombre_proporcionado: z.string().describe("Nombre o apellido proporcionado por el usuario")
+    },
+    async ({ contrato, nombre_proporcionado }) => {
+        console.log(`[validate_contract_holder] Validating "${nombre_proporcionado}" against contract ${contrato}`);
+
+        try {
+            const response = await fetchWithRetry(
+                `${CEA_API_BASE}/InterfazGenericaContratacionWS`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+                    body: buildContratoSOAP(contrato)
+                }
+            );
+
+            const xml = await response.text();
+            const parsed = parseContratoResponse(xml);
+
+            if (!parsed.success || !parsed.data) {
+                console.log(`[validate_contract_holder] API error or no data, skipping verification`);
+                return { content: [{ type: "text" as const, text: JSON.stringify({
+                    validated: true,
+                    skipped: true,
+                    reason: "No se pudo obtener datos del contrato"
+                }) }] };
+            }
+
+            // ENRICHMENT: Get real service status from punto de servicio
+            const numeroContador = parseXMLValue(xml, "numeroContador");
+            console.log(`[validate_contract_holder] numeroContador from XML: ${numeroContador}`);
+            if (numeroContador && parsed.data) {
+                try {
+                    const psEstado = await fetchPuntoServicioEstado(numeroContador);
+                    if (psEstado) {
+                        console.log(`[validate_contract_holder] Punto servicio enrichment: ${parsed.data.estado} -> ${psEstado}`);
+                        parsed.data.estado = psEstado;
+                    }
+                } catch (e) {
+                    console.log(`[validate_contract_holder] Punto servicio enrichment failed, using default status`);
+                }
+            } else {
+                console.log(`[validate_contract_holder] Enrichment skipped: numeroContador=${numeroContador}`);
+            }
+
+            const titular = parsed.data.titular;
+            if (!titular || titular.trim() === "") {
+                console.log(`[validate_contract_holder] No titular data, skipping verification`);
+                return { content: [{ type: "text" as const, text: JSON.stringify({
+                    validated: true,
+                    skipped: true,
+                    reason: "El contrato no tiene datos de titular"
+                }) }] };
+            }
+
+            const result = matchName(nombre_proporcionado, titular);
+            console.log(`[validate_contract_holder] Match result: ${JSON.stringify(result)}`);
+
+            if (result.match) {
+                // Mark contract as verified for this conversation
+                const conversationId = process.env.CURRENT_CONVERSATION_ID || "";
+                if (conversationId) {
+                    if (!verifiedContractsMap.has(conversationId)) {
+                        verifiedContractsMap.set(conversationId, new Set());
+                    }
+                    verifiedContractsMap.get(conversationId)!.add(contrato);
+                    console.log(`[validate_contract_holder] Contract ${contrato} verified for conversation ${conversationId}`);
+                }
+
+                return { content: [{ type: "text" as const, text: JSON.stringify({
+                    validated: true,
+                    confidence: result.confidence,
+                    method: result.method,
+                    estado: parsed.data.estado
+                }) }] };
+            }
+
+            return { content: [{ type: "text" as const, text: JSON.stringify({
+                validated: false,
+                message: "El nombre no coincide con el titular del contrato. ¿Puedes verificar e intentarlo de nuevo?"
+            }) }] };
+
+        } catch (error) {
+            console.error(`[validate_contract_holder] Error:`, error);
+            // Fail-open: don't block the user if the API is down
+            return { content: [{ type: "text" as const, text: JSON.stringify({
+                validated: true,
+                skipped: true,
+                reason: "Error al verificar, se omite validación"
+            }) }] };
+        }
     }
 );
 
@@ -1273,9 +1911,11 @@ export const allTools = [
     searchCustomerByContractTool,
     updateTicketTool,
     // Utility Tools
-    getReciboLinkTool,
+    getReciboPdfTool,
     // Conversation Tools
-    handoffToHumanTool
+    handoffToHumanTool,
+    // Verification Tools
+    validateContractHolderTool
 ];
 
 export { fetchWithRetry };

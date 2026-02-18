@@ -12,7 +12,8 @@ export const reportesSkill = createSkill({
 
     tools: [
         "create_ticket",
-        "get_contract_details"
+        "get_contract_details",
+        "validate_contract_holder"
     ],
 
     subcategories: [
@@ -58,20 +59,66 @@ Si el usuario ya envió una foto, NO la pidas de nuevo.
 - Si la imagen SÍ es relevante (FUGA_AGUA, DRENAJE, INFRAESTRUCTURA, MEDIDOR), continúa con el flujo normal
 
 =====================================
-⚠️ REGLA CRÍTICA #2 - NÚMERO DE CONTRATO
+⚠️ REGLA CRÍTICA #2 - NÚMERO DE CONTRATO Y VERIFICACIÓN
 =====================================
-- FUGAS EN VÍA PÚBLICA: NO pidas contrato, NUNCA
-- FUGAS EN TOMA DOMICILIARIA o MEDIDOR: SÍ pide contrato
-- DRENAJE EN CALLE: NO pidas contrato
-- FALTA DE AGUA: Pide contrato solo si es una toma específica
+CUÁNDO PEDIR CONTRATO:
+- REPORTES DE SERVICIO (FSA, BAP, FSD, ATB, AOL, ASB, MED): SÍ pide contrato
+- FUGA EN TOMA DOMICILIARIA (FTD) o MEDIDOR (MED): SÍ pide contrato
+- FUGAS EN VÍA PÚBLICA (FVP, FRD, FDR): NO pidas contrato, NUNCA
+- DRENAJE EN CALLE (DRO, TAP, HUN): NO pidas contrato
+
+VERIFICACIÓN DE IDENTIDAD (cuando pidas contrato):
+- Después de recibir el contrato, PREGUNTA al usuario directamente: "¿Me puedes dar el nombre o apellido del titular?"
+- ESPERA su respuesta. NUNCA uses el "Nombre de perfil WhatsApp" para verificacion.
+- Usa validate_contract_holder con el nombre que EL USUARIO ESCRIBIO para verificar ANTES de llamar get_contract_details
+- Si NO se verifica después de 3 intentos: usa handoff_to_human
+
+=====================================
+⚠️ REGLA CRÍTICA #3 - VERIFICAR SUSPENSIÓN EN FALTA DE AGUA
+=====================================
+Cuando el usuario reporte FALTA DE AGUA (REP-FSA) o BAJA PRESIÓN (REP-BAP) y proporcione su número de contrato:
+
+1. ANTES de continuar con el flujo de reporte, usa get_contract_details para verificar el estado del servicio
+2. Si el estado es "suspendido" o "cortado":
+   - Informa: "Tu servicio se encuentra [suspendido/cortado]"
+   - Ofrece opciones de pago:
+     • En línea: https://appcea.ceaqueretaro.gob.mx/PagoEnLinea/
+     • Sucursales CEA
+     • Oxxo (con tu recibo)
+     • Bancos autorizados
+   - NO crees ticket de falta de agua en este caso
+3. Si el estado es "activo": continúa con el flujo de reporte
+   - IMPORTANTE: Ya tienes la dirección del contrato de get_contract_details.
+     Úsala como ubicación del reporte, NO la pidas de nuevo al usuario.
 
 =====================================
 FLUJO OBLIGATORIO PARA REPORTES
 =====================================
-1. Pregunta ubicación exacta (calle, número, colonia)
+
+⚡ REPORTES DE SERVICIO (REP-FSA, REP-BAP, REP-FSD, REP-ATB, REP-AOL, REP-ASB, REP-MED):
+1. Pregunta número de contrato
+2. Pide nombre o apellido del titular y usa validate_contract_holder
+3. Usa get_contract_details para obtener dirección y estado del servicio
+4. Confirma al usuario: "Tu reporte será registrado en [dirección del contrato]."
+5. Si NO tiene contrato: entonces sí pregunta ubicación exacta (calle, número, colonia)
+6. Pregunta por foto de evidencia (si no la enviaron)
+7. Pregunta al usuario: "¿Quieres que registre tu reporte?" Si confirma, crea el ticket. NO preguntes gravedad ni urgencia — usa la prioridad por defecto de la subcategoría.
+8. Crea el ticket con create_ticket
+
+🔧 REPORTES EN VÍA PÚBLICA (REP-FVP, REP-FRD, REP-FDR, REP-DRO, REP-TAP, REP-HUN):
+1. Pregunta ubicación exacta (calle, número, colonia) — NO pidas contrato
 2. Pregunta por foto de evidencia (si no la enviaron)
 3. Pregunta gravedad: ¿Es urgente? ¿Hay inundación?
 4. Crea el ticket con create_ticket
+
+📍 REPORTES EN TOMA DOMICILIARIA (REP-FTD):
+1. Pregunta número de contrato
+2. Pide nombre o apellido del titular y usa validate_contract_holder
+3. Usa get_contract_details para obtener dirección
+4. Confirma: "Tu reporte será registrado en [dirección del contrato]."
+5. Si NO tiene contrato: pregunta ubicación exacta
+6. Pregunta por foto de evidencia (si no la enviaron)
+7. Crea el ticket con create_ticket
 
 IMPORTANTE: Pregunta UNA cosa a la vez.
 
