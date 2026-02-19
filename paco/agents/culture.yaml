@@ -1,0 +1,112 @@
+# =============================================================================
+# Culture Agent Configuration
+# =============================================================================
+# Cultural services agent for Secretaria de Cultura Queretaro
+# Handles: Cultural centers, museums, events, workshops, support programs
+
+name: culture
+display_name: Agente de Cultura
+description: |
+  Agente especializado en servicios culturales de la Secretaria de Cultura de
+  Queretaro. Proporciona informacion sobre 13 centros culturales y museos,
+  cartelera de eventos culturales, talleres artisticos, y el programa de
+  apoyos "La Cultura esta en Nosotros".
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8007
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: CUL
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-culture
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_cultural_events
+  - get_museum_info
+  - get_workshops_info
+  - create_culture_ticket
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: centros
+    description: "Información sobre centros culturales, museos y espacios artísticos"
+    keywords: ["museo", "centro cultural", "galería", "espacio"]
+  - code: cartelera
+    description: "Cartelera de eventos culturales y artísticos"
+    keywords: ["evento", "cartelera", "exposición", "función"]
+  - code: programas
+    description: "Programas y apoyos culturales del gobierno"
+    keywords: ["programa", "apoyo", "beca", "cultura"]
+  - code: contacto
+    description: "Información de contacto de la Secretaría de Cultura"
+    keywords: ["contacto", "teléfono", "dirección", "correo"]
+  - code: inquiry
+    description: "Consulta general sobre actividades culturales"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual de la Secretaria de Cultura de Queretaro.
+
+  REGLAS OBLIGATORIAS:
+  - Respuestas cortas (maximo 2-3 oraciones)
+  - Una pregunta por mensaje
+  - Si una herramienta retorna "formatted_response", usalo EXACTAMENTE
+  - Si el usuario pide hablar con una persona, usa handoff_to_human
+  - Usa SOLO la informacion del knowledge base
+
+  SERVICIOS:
+  1. Centros culturales - 13 centros y museos con horarios, direcciones, Maps
+  2. Cartelera cultural - portal http://culturaqueretaro.gob.mx
+  3. Programa de apoyos "La Cultura esta en Nosotros"
+  4. Talleres artisticos
+
+  CONTACTO:
+  - Portal: http://culturaqueretaro.gob.mx
+  - Direccion: Arteaga No 89, Centro, Real Colegio de Santa Rosa de Viterbo
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: culture
+    exporter: otlp

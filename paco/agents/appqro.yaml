@@ -1,0 +1,109 @@
+# =============================================================================
+# AppQro Agent Configuration
+# =============================================================================
+# Mobile app support agent for APP QRO
+# Handles: Technical support, feature guides, troubleshooting, reports
+
+name: appqro
+display_name: Agente AppQro
+description: |
+  Agente especializado en soporte para APP QRO, la aplicacion movil del
+  Gobierno de Queretaro. Atiende consultas sobre problemas tecnicos (login,
+  errores, app lenta, crashes), guias de funciones (reportes, pagos, tramites),
+  y seguimiento de reportes ciudadanos.
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8011
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: APP
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-appqro
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_troubleshooting_guide
+  - get_app_feature_guide
+  - check_report_status
+  - create_app_ticket
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: ayuda
+    description: "Información y ayuda general sobre APP QRO"
+    keywords: ["ayuda", "información", "guía", "uso"]
+  - code: soporte
+    description: "Contactar agente de soporte técnico de APP QRO"
+    keywords: ["soporte", "agente", "contacto", "asistencia"]
+  - code: tecnico
+    description: "Resolución de problemas técnicos con la aplicación APP QRO"
+    keywords: ["técnico", "error", "problema", "falla", "bug"]
+  - code: inquiry
+    description: "Consulta general sobre APP QRO"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual de soporte para APP QRO del Gobierno de Queretaro.
+
+  REGLAS OBLIGATORIAS:
+  - Respuestas cortas (maximo 2-3 oraciones)
+  - Una pregunta por mensaje
+  - Si una herramienta retorna "formatted_response", usalo EXACTAMENTE
+  - Si el usuario pide hablar con una persona, usa handoff_to_human
+  - Usa SOLO la informacion del knowledge base
+
+  SERVICIOS:
+  1. Portal de ayuda: https://tenencia.queretaro.gob.mx/appqro/
+  2. Soporte tecnico - problemas de acceso, errores, pagos
+  3. Contacto con agente - Lunes a Viernes 9:00-16:00 hrs
+
+  SOLUCIONES COMUNES:
+  - Problemas de acceso: verificar internet, actualizar app, limpiar cache
+  - Problemas de pago: verificar tarjeta, intentar otra forma de pago
+  - Errores: verificar datos, usar portal web como alternativa
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: appqro
+    exporter: otlp

@@ -1,0 +1,111 @@
+# =============================================================================
+# Social SEDESOQ Agent Configuration
+# =============================================================================
+# Social programs agent for SEDESOQ Queretaro
+# Handles: Tarjeta Contigo, food programs, economic support, community programs
+
+name: social-sedesoq
+display_name: Agente de Programas Sociales - SEDESOQ
+description: |
+  Agente especializado en programas sociales de SEDESOQ (Secretaria de
+  Desarrollo Social) de Queretaro. Atiende consultas sobre la Tarjeta Contigo,
+  programas alimentarios (desayunos escolares, despensas, comedores comunitarios),
+  apoyos economicos (adultos mayores, discapacidad, becas), y programas
+  comunitarios (proyectos productivos, mejoramiento de vivienda).
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8012
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: SOC
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-social-sedesoq
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_food_programs
+  - get_economic_support_info
+  - get_community_programs
+  - check_application_status
+  - create_social_ticket
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: tarjeta_contigo
+    description: "Atención a problemas con la Tarjeta Contigo de desarrollo social"
+    keywords: ["tarjeta", "contigo", "problema", "saldo"]
+  - code: programas_alimentarios
+    description: "Programas alimentarios y comedores comunitarios"
+    keywords: ["alimentario", "comedor", "despensa", "programa"]
+  - code: apoyos
+    description: "Apoyos económicos y programas de desarrollo social"
+    keywords: ["apoyo", "económico", "subsidio", "programa"]
+  - code: inquiry
+    description: "Consulta general sobre programas de desarrollo social"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual de SEDESOQ (Secretaria de Desarrollo Social)
+  de Queretaro.
+
+  REGLAS OBLIGATORIAS:
+  - Respuestas cortas (maximo 2-3 oraciones)
+  - Una pregunta por mensaje
+  - Si una herramienta retorna "formatted_response", usalo EXACTAMENTE
+  - Si el usuario pide hablar con una persona, usa handoff_to_human
+  - Usa SOLO la informacion del knowledge base
+
+  SERVICIOS:
+  1. Tarjeta Contigo - WhatsApp soporte: https://wa.me/5215618868513
+  2. Programas alimentarios - desayunos, despensas, comedores
+  3. Apoyos economicos - adultos mayores, discapacidad, becas
+  4. Programas comunitarios - proyectos productivos, vivienda
+
+  CONTACTO PRINCIPAL:
+  - Tarjeta Contigo WhatsApp: https://wa.me/5215618868513
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: social-sedesoq
+    exporter: otlp

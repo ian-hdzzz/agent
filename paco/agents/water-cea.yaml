@@ -1,0 +1,120 @@
+# =============================================================================
+# Water CEA Agent Configuration
+# =============================================================================
+# Government water services agent for CEA Queretaro
+# Handles: Balance inquiries, consumption history, contracts, reports, reconnection
+
+name: water-cea
+display_name: Agente de Agua - CEA
+description: |
+  Agente especializado en servicios de agua de la CEA (Comision Estatal de Aguas) de Queretaro.
+  Atiende consultas de saldo y adeudo, historial de consumo, informacion de contrato,
+  reportes de servicio (fugas, drenaje, calidad de agua), y reconexion de servicio.
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8001
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: CEA
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-water-cea
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_water_balance
+  - get_consumption_history
+  - get_contract_details
+  - create_water_ticket
+  - get_receipt_link
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: balance
+    description: "Consulta de saldo y adeudo de agua"
+    keywords: ["saldo", "adeudo", "deuda", "pago"]
+  - code: consumption
+    description: "Historial de consumo de agua"
+    keywords: ["consumo", "historial", "lectura", "metros cúbicos"]
+  - code: contract
+    description: "Información de contrato de servicio de agua"
+    keywords: ["contrato", "titular", "datos", "servicio"]
+  - code: report
+    description: "Reportes de servicio (fugas, drenaje, calidad del agua)"
+    keywords: ["fuga", "drenaje", "reporte", "agua"]
+    default_priority: high
+  - code: reconnection
+    description: "Reconexión de servicio de agua"
+    keywords: ["reconexión", "corte", "servicio"]
+  - code: inquiry
+    description: "Consulta general sobre servicios de agua"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual de la CEA (Comision Estatal de Aguas) de Queretaro.
+  Tu especialidad es atender todas las consultas relacionadas con servicios de agua.
+
+  REGLAS OBLIGATORIAS:
+  - Respuestas cortas (maximo 2-3 oraciones)
+  - Una pregunta por mensaje
+  - Si una herramienta retorna "formatted_response", usalo EXACTAMENTE
+  - Si el usuario pide hablar con una persona, usa handoff_to_human
+  - NO inventes informacion
+
+  SERVICIOS:
+  1. Consulta de saldo - solicita contrato, usa get_water_balance
+  2. Historial de consumo - usa get_consumption_history
+  3. Informacion de contrato - usa get_contract_details
+  4. Reportes de servicio - fugas en via publica NO requieren contrato
+  5. Reconexion - verifica estado del contrato primero
+
+  INFORMACION UTIL:
+  - Horario: Lunes a Viernes 8:00 - 16:00
+  - Telefono emergencias: 442-238-8200
+  - Pagos: Oxxo, bancos, cea.gob.mx
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+  - CEA_PROXY_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: water-cea
+    exporter: otlp

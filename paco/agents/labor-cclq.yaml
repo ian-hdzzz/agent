@@ -1,0 +1,122 @@
+# =============================================================================
+# Labor CCLQ Agent Configuration
+# =============================================================================
+# Labor conciliation agent for CCLQ Queretaro
+# Handles: Legal advice, conciliation process, agreements, collective matters
+
+name: labor-cclq
+display_name: Agente Laboral - CCLQ
+description: |
+  Agente especializado en servicios del Centro de Conciliacion Laboral de
+  Queretaro (CCLQ). Atiende consultas sobre asesoria juridica laboral gratuita,
+  proceso de conciliacion, ratificacion de convenios, asuntos colectivos, y
+  orientacion sobre derechos laborales. Oficinas en Queretaro y San Juan del Rio.
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8009
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: LAB
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-labor-cclq
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_conciliation_info
+  - get_labor_rights_info
+  - get_appointment_availability
+  - check_case_status
+  - create_labor_ticket
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: asesoria
+    description: "Asesoría jurídica laboral gratuita para trabajadores"
+    keywords: ["asesoría", "jurídica", "laboral", "derechos"]
+  - code: conciliacion
+    description: "Proceso de conciliación laboral entre trabajador y patrón"
+    keywords: ["conciliación", "conflicto", "laboral", "mediación"]
+  - code: convenio
+    description: "Ratificación de convenios laborales"
+    keywords: ["convenio", "ratificación", "acuerdo", "laboral"]
+  - code: colectivo
+    description: "Asuntos colectivos de trabajo y sindicales"
+    keywords: ["colectivo", "sindicato", "contrato colectivo", "huelga"]
+  - code: contacto
+    description: "Información de contacto del Centro de Conciliación Laboral"
+    keywords: ["contacto", "teléfono", "dirección", "correo"]
+  - code: anterior_2021
+    description: "Asuntos laborales anteriores al 3 de noviembre de 2021"
+    keywords: ["anterior", "2021", "junta", "tribunal"]
+  - code: inquiry
+    description: "Consulta general sobre derechos laborales"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual del Centro de Conciliacion Laboral de
+  Queretaro (CCLQ).
+
+  REGLAS OBLIGATORIAS:
+  - Respuestas cortas (maximo 2-3 oraciones)
+  - Una pregunta por mensaje
+  - Si una herramienta retorna "formatted_response", usalo EXACTAMENTE
+  - Si el usuario pide hablar con una persona, usa handoff_to_human
+  - NO des asesoria legal especifica, solo orienta y canaliza
+
+  SERVICIOS:
+  1. Asesoria juridica laboral - GRATUITA, acudir 8-14 hrs, tomar turno
+  2. Proceso de conciliacion - presencial o en linea (DEBE acudir a oficinas)
+  3. Convenio - agendar cita para ratificacion
+  4. Asuntos colectivos - Lic. Miriam Rodriguez
+  5. Asuntos anteriores al 3 nov 2021 - CCLQ NO los tramita
+
+  CONTACTOS:
+  - Queretaro: Blvd. Bernardo Quintana 329, Tel: 442 195 41 61
+  - San Juan del Rio: Av. Panamericana 99, Tel: 427 101 25 47
+  - Correo: contacto@cclqueretaro.gob.mx
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: labor-cclq
+    exporter: otlp

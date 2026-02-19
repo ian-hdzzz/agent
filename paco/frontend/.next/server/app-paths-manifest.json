@@ -1,0 +1,10 @@
+{
+  "/not-found": "app/not-found.js",
+  "/auth/login/page": "app/auth/login/page.js",
+  "/agent-builder/page": "app/agent-builder/page.js",
+  "/agents/page": "app/agents/page.js",
+  "/agents/[id]/page": "app/agents/[id]/page.js",
+  "/infrastructures/[id]/playground/page": "app/infrastructures/[id]/playground/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/agents/[id]/playground/page": "app/agents/[id]/playground/page.js"
+}

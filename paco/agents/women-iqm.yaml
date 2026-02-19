@@ -1,0 +1,119 @@
+# =============================================================================
+# Women IQM Agent Configuration
+# =============================================================================
+# Women's services agent for IQM Queretaro
+# Handles: Legal/psychological advice, violence resources, empowerment programs
+
+name: women-iqm
+display_name: Agente de la Mujer - IQM
+description: |
+  Agente especializado en servicios del Instituto Queretano de la Mujer (IQM).
+  Brinda orientacion sobre asesoria legal y psicologica gratuita, recursos ante
+  situaciones de violencia, programas de empoderamiento economico, servicios
+  de salud y canalizacion a refugios. Atencion 24/7 via Tel Mujer.
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8006
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: IQM
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-women-iqm
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_violence_resources
+  - get_empowerment_programs
+  - get_legal_services
+  - get_health_services
+  - create_women_ticket
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: contacto
+    description: "Contactar al Instituto Queretano de la Mujer"
+    keywords: ["contacto", "IQM", "teléfono", "dirección"]
+  - code: centros
+    description: "Centros de atención para mujeres"
+    keywords: ["centro", "atención", "refugio", "servicio"]
+  - code: violencia
+    description: "Atención a situaciones de violencia de género"
+    keywords: ["violencia", "denuncia", "protección", "urgente"]
+    default_priority: high
+  - code: ubicacion
+    description: "Ubicación de oficinas del IQM"
+    keywords: ["ubicación", "dirección", "oficina", "mapa"]
+  - code: inquiry
+    description: "Consulta general sobre servicios del IQM"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual del Instituto Queretano de la Mujer (IQM).
+
+  REGLAS OBLIGATORIAS:
+  - Estilo empatico y respetuoso
+  - En EMERGENCIAS de violencia, transfiere INMEDIATAMENTE
+  - Proporciona linea de emergencia 911
+  - No juzgues, solo apoya y orienta
+  - Usa SOLO la informacion del knowledge base
+
+  MANEJO DE EMERGENCIAS:
+  - Violencia en curso o peligro inmediato: 911 INMEDIATAMENTE
+  - Tel Mujer: 442 216 47 57 (24 horas, 365 dias)
+
+  SERVICIOS:
+  1. Asesoria legal y psicologica GRATUITA
+  2. Centros de atencion - contactar Tel Mujer
+  3. Pasos ante violencia - 911, Tel Mujer, oficinas IQM
+  4. Programas de empoderamiento economico
+
+  CONTACTO:
+  - Tel Mujer: 442 216 47 57 (24 horas)
+  - Direccion: Jose Maria Pino Suarez #22, Col Centro, C.P. 76000
+  - Emergencias: 911
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: women-iqm
+    exporter: otlp

@@ -1,0 +1,125 @@
+# =============================================================================
+# Registry RPP Agent Configuration
+# =============================================================================
+# Public property registry agent for RPP Queretaro
+# Handles: Property certificates, CERLIN registration, real estate procedures
+
+name: registry-rpp
+display_name: Agente de Registro Publico - RPP
+description: |
+  Agente especializado en servicios del Registro Publico de la Propiedad (RPP)
+  de Queretaro. Atiende consultas inmobiliarias, registro y recuperacion de
+  acceso al sistema CERLIN, 8 tipos de certificados, tramites inmobiliarios
+  (cancelacion de hipoteca, demandas, testamentos), alerta registral, y
+  seguimiento de tramites. 6 subdirecciones en el estado.
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8008
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: RPP
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-registry-rpp
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_certificate_info
+  - get_registration_requirements
+  - check_registry_status
+  - create_registry_ticket
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: consulta
+    description: "Consulta inmobiliaria y búsqueda de propiedades registradas"
+    keywords: ["consulta", "inmobiliaria", "propiedad", "registro"]
+  - code: registro
+    description: "Registro y recuperación de acceso al sistema CERLIN"
+    keywords: ["CERLIN", "registro", "acceso", "cuenta"]
+  - code: certificados
+    description: "Expedición de certificados registrales (8 tipos disponibles)"
+    keywords: ["certificado", "expedición", "documento", "oficial"]
+  - code: hipoteca
+    description: "Cancelación de hipoteca en el Registro Público"
+    keywords: ["hipoteca", "cancelación", "liberación", "gravamen"]
+  - code: seguimiento
+    description: "Seguimiento del estatus de trámites registrales"
+    keywords: ["seguimiento", "estatus", "trámite", "avance"]
+  - code: alerta
+    description: "Alerta registral para protección de inmuebles"
+    keywords: ["alerta", "protección", "inmueble", "notificación"]
+  - code: ubicaciones
+    description: "Ubicaciones de subdirecciones del Registro Público"
+    keywords: ["ubicación", "subdirección", "oficina", "dirección"]
+  - code: inquiry
+    description: "Consulta general sobre el Registro Público de la Propiedad"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual del Registro Publico de la Propiedad (RPP)
+  de Queretaro.
+
+  REGLAS OBLIGATORIAS:
+  - Respuestas cortas (maximo 2-3 oraciones)
+  - Una pregunta por mensaje
+  - Si una herramienta retorna "formatted_response", usalo EXACTAMENTE
+  - Si el usuario pide hablar con una persona, usa handoff_to_human
+  - Usa SOLO la informacion del knowledge base
+
+  SERVICIOS:
+  1. Consulta inmobiliaria - por clave catastral, folio o ubicacion
+  2. Registro/recuperar acceso CERLIN
+  3. Certificados (8 tipos) - con costos en UMAS
+  4. Tramites inmobiliarios - PRESENCIALES en oficialia de partes
+  5. Alerta registral - solo titulares, sin costo, vigencia 1 ano
+  6. Seguimiento de tramites
+
+  HORARIO: 08:00 a 14:30 hrs lunes a viernes
+  PORTAL: https://rppc.queretaro.gob.mx
+  CERLIN: https://cerlin.ciasqro.gob.mx/cerlin/
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: registry-rpp
+    exporter: otlp

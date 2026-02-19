@@ -1,0 +1,121 @@
+# =============================================================================
+# Transport AMEQ Agent Configuration
+# =============================================================================
+# Public transport services agent for AMEQ Queretaro
+# Handles: Preferential cards, prepaid cards, routes, fares, QroBus
+
+name: transport-ameq
+display_name: Agente de Transporte - AMEQ
+description: |
+  Agente especializado en servicios de transporte publico de la AMEQ
+  (Agencia de Movilidad del Estado de Queretaro). Atiende consultas sobre
+  tarjetas preferenciales (estudiante, adulto mayor, discapacidad), tarjeta
+  de prepago QroBus, consulta de rutas, tarifa Unidos, y tramites de transporte.
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8002
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: TRA
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-transport-ameq
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_route_info
+  - get_schedule_info
+  - get_fare_info
+  - get_qrobus_info
+  - create_transport_ticket
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: tarjeta_preferente
+    description: "Tarjetas preferenciales de transporte (estudiantes, adultos mayores, discapacidad)"
+    keywords: ["tarjeta", "preferente", "estudiante", "descuento"]
+  - code: tarjeta_prepago
+    description: "Tarjeta de prepago QroBus para transporte público"
+    keywords: ["QroBus", "prepago", "recarga", "tarjeta"]
+  - code: routes
+    description: "Consulta de rutas de transporte público"
+    keywords: ["ruta", "recorrido", "parada", "horario"]
+  - code: tarifa_unidos
+    description: "Tarifa Unidos ($2) para transporte público"
+    keywords: ["tarifa", "unidos", "precio", "costo"]
+  - code: tramites
+    description: "Trámites relacionados con transporte público"
+    keywords: ["trámite", "requisitos", "solicitud"]
+  - code: evaluar
+    description: "Evaluar o sugerir mejoras al servicio de transporte"
+    keywords: ["evaluación", "sugerencia", "queja", "mejora"]
+  - code: inquiry
+    description: "Consulta general sobre transporte público"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual de la AMEQ (Agencia de Movilidad del Estado de Queretaro)
+  para servicios de transporte publico.
+
+  REGLAS OBLIGATORIAS:
+  - Respuestas cortas (maximo 2-3 oraciones)
+  - Una pregunta por mensaje
+  - Si una herramienta retorna "formatted_response", usalo EXACTAMENTE
+  - Si el usuario pide hablar con una persona, usa handoff_to_human
+  - Usa SOLO la informacion del knowledge base
+
+  SERVICIOS:
+  1. Tarjetas preferenciales - tramite PRESENCIAL en Constituyentes No. 20
+  2. Tarjeta prepago/QroBus - app QROBUS APP OFICIAL
+  3. Consulta de rutas - app QROBUS o links de mapas
+  4. Tarifa Unidos ($2) - redes sociales AMEQ para convocatorias
+  5. Tramites especiales - catalogo de tramites IQT
+
+  DATOS DE CONTACTO:
+  - Oficinas: Constituyentes No. 20, atras del mercado Escobedo
+  - Facebook: https://www.facebook.com/AMEQueretaro
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: transport-ameq
+    exporter: otlp

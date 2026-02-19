@@ -1,0 +1,226 @@
+# =============================================================================
+# Maria Claude Agent Configuration
+# =============================================================================
+# Text-based customer service agent for CEA Queretaro
+# Handles: Balance inquiries, consumption history, ticket creation, etc.
+
+name: maria-claude
+display_name: Maria Claude
+description: |
+  Maria is an AI customer service assistant for CEA Queretaro water utility.
+  She handles balance inquiries, consumption history, contract details,
+  support ticket creation, and escalation to human agents when needed.
+
+type: claude-sdk
+version: 1.2.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 3002
+  memory_limit: 512M
+  health_endpoint: /health
+  pm2:
+    instances: 1
+    exec_mode: fork
+    max_memory_restart: 500M
+    watch: false
+    autorestart: true
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-20250514
+  max_budget: 0.50
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# MCP Tools Configuration
+# =============================================================================
+tools:
+  # CEA SOAP API Tools
+  - mcp://cea-tools/get_deuda
+  - mcp://cea-tools/get_consumo
+  - mcp://cea-tools/get_contract_details
+  - mcp://cea-tools/get_recibo_link
+
+  # AGORA Ticket System Tools
+  - mcp://agora-tools/create_ticket
+  - mcp://agora-tools/get_client_tickets
+  - mcp://agora-tools/update_ticket
+  - mcp://agora-tools/search_customer_by_contract
+
+# =============================================================================
+# Skills Configuration
+# =============================================================================
+skills:
+  - code: consultas
+    name: Consultas
+    description: "Preguntas generales, información, consulta de saldo, horarios, estatus de solicitudes"
+    default_priority: low
+    keywords: ["saldo", "adeudo", "horarios", "oficinas", "estatus", "trámites"]
+    required_tools: ["get_deuda", "get_contract_details", "get_client_tickets", "search_customer_by_contract"]
+    subcategories:
+      - { code: "CON-001", name: "Información general" }
+      - { code: "CON-002", name: "Consulta de saldo/adeudo" }
+      - { code: "CON-003", name: "Horarios y ubicación de oficinas" }
+      - { code: "CON-004", name: "Requisitos de trámites" }
+      - { code: "CON-005", name: "Consulta de estatus de solicitud" }
+
+  - code: facturacion
+    name: Facturación
+    description: "Recibos, aclaraciones de cobro, ajustes, pagos, historial, devoluciones"
+    default_priority: medium
+    keywords: ["recibo", "cobro", "ajuste", "pago", "factura", "devolución"]
+    required_tools: ["get_deuda", "get_consumo", "get_contract_details", "create_ticket", "search_customer_by_contract", "get_recibo_link"]
+    subcategories:
+      - { code: "FAC-001", name: "Solicitud de recibo por correo electrónico" }
+      - { code: "FAC-002", name: "Solicitud de recibo a domicilio" }
+      - { code: "FAC-003", name: "Reimpresión de recibo" }
+      - { code: "FAC-004", name: "Aclaración de cobro" }
+      - { code: "FAC-005", name: "Solicitud de ajuste" }
+      - { code: "FAC-006", name: "Carta de no adeudo" }
+      - { code: "FAC-007", name: "Historial de pagos" }
+      - { code: "FAC-008", name: "Solicitud de devolución de pago" }
+      - { code: "FAC-009", name: "Multas" }
+
+  - code: contratos
+    name: Contratos
+    description: "Altas, bajas, cambios de titular, cambio de tarifa, nuevas tomas, modificaciones contractuales"
+    default_priority: medium
+    keywords: ["contrato", "titular", "alta", "baja", "tarifa", "toma nueva"]
+    required_tools: ["get_contract_details", "search_customer_by_contract", "create_ticket"]
+    subcategories:
+      - { code: "CTR-001", name: "Toma nueva doméstica" }
+      - { code: "CTR-002", name: "Toma nueva comercial" }
+      - { code: "CTR-003", name: "Fraccionamiento doméstico (más de 6 unidades)" }
+      - { code: "CTR-004", name: "Cambio de nombre/titular" }
+      - { code: "CTR-005", name: "Alta o cambio de datos fiscales" }
+      - { code: "CTR-006", name: "Cambio de tarifa" }
+      - { code: "CTR-007", name: "Incremento de unidades" }
+      - { code: "CTR-008", name: "Domiciliación de pago" }
+      - { code: "CTR-009", name: "Baja temporal" }
+      - { code: "CTR-010", name: "Baja definitiva" }
+
+  - code: consumos
+    name: Consumos
+    description: "Historial de consumo de agua, lecturas, tendencias de uso"
+    default_priority: low
+    keywords: ["consumo", "historial", "lectura", "metros cúbicos", "tendencia"]
+    required_tools: ["get_consumo", "get_contract_details", "get_deuda", "create_ticket"]
+    subcategories:
+      - { code: "CNS-001", name: "Consulta de historial de consumo" }
+      - { code: "CNS-002", name: "Consumo por año específico" }
+      - { code: "CNS-003", name: "Tendencia de consumo" }
+
+  - code: reportes
+    name: Reportes de Servicio
+    description: "Reportes de fugas, falta de agua, drenaje tapado, calidad del agua, infraestructura dañada"
+    default_priority: high
+    keywords: ["fuga", "drenaje", "agua turbia", "presión", "medidor", "hundimiento"]
+    required_tools: ["create_ticket", "get_contract_details"]
+    subcategories:
+      - { code: "REP-FVP", name: "Fuga en vía pública" }
+      - { code: "REP-FTD", name: "Fuga en toma domiciliaria" }
+      - { code: "REP-FRD", name: "Fuga en red de distribución" }
+      - { code: "REP-FDR", name: "Fuga en drenaje" }
+      - { code: "REP-FSA", name: "Falta de servicio de agua" }
+      - { code: "REP-FSD", name: "Falta de servicio de drenaje" }
+      - { code: "REP-BAP", name: "Baja presión" }
+      - { code: "REP-ATB", name: "Agua turbia" }
+      - { code: "REP-AOL", name: "Agua con olor" }
+      - { code: "REP-ASB", name: "Agua con sabor" }
+      - { code: "REP-MED", name: "Problema con medidor" }
+      - { code: "REP-DRO", name: "Drenaje obstruido" }
+      - { code: "REP-TAP", name: "Tapa de registro dañada" }
+      - { code: "REP-HUN", name: "Hundimiento en vía pública" }
+
+  - code: convenios
+    name: Convenios
+    description: "Convenios de pago, programas de apoyo, pensionados, tercera edad, personas con discapacidad"
+    default_priority: medium
+    keywords: ["convenio", "pago", "apoyo", "pensionado", "tercera edad", "discapacidad", "prórroga"]
+    required_tools: ["get_deuda", "get_contract_details", "create_ticket", "search_customer_by_contract"]
+    subcategories:
+      - { code: "CVN-001", name: "Convenio corto plazo (0-6 meses)" }
+      - { code: "CVN-002", name: "Convenio mediano plazo (7-12 meses)" }
+      - { code: "CVN-003", name: "Convenio largo plazo (13+ meses)" }
+      - { code: "CVN-004", name: "Otorgamiento de prórroga" }
+      - { code: "CVN-005", name: "Programa pensionados y jubilados" }
+      - { code: "CVN-006", name: "Programa tercera edad" }
+      - { code: "CVN-007", name: "Programa personas con discapacidad" }
+
+# =============================================================================
+# Integrations
+# =============================================================================
+integrations:
+  - name: chatwoot
+    type: webhook
+    config:
+      base_url: ${CHATWOOT_BASE_URL}
+      api_key: ${CHATWOOT_API_KEY}
+      webhook_path: /webhook
+      supported_events:
+        - message.created
+        - conversation.status_changed
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual de la Comisión Estatal de Aguas de Querétaro (CEA).
+
+  PERSONALIDAD:
+  - Amable, profesional y empática
+  - Respuestas concisas y directas
+  - Usa emojis moderadamente para dar calidez
+
+  CAPACIDADES:
+  - Consultar saldos y adeudos
+  - Revisar historial de consumo
+  - Verificar detalles de contrato
+  - Crear tickets de soporte
+  - Transferir a agentes humanos cuando sea necesario
+
+  REGLAS:
+  1. SIEMPRE valida el contrato antes de dar información sensible
+  2. Para reportes de fugas en vía pública, NO pidas contrato
+  3. NUNCA cierres tickets - solo agentes humanos pueden hacerlo
+  4. Si no puedes ayudar, transfiere a un humano amablemente
+
+  FORMATO DE RESPUESTA:
+  - Usa el campo 'formatted_response' de las herramientas cuando esté disponible
+  - Mantén respuestas cortas (máximo 3 párrafos)
+  - Incluye siempre el número de folio cuando crees tickets
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - CEA_API_URL
+  - CEA_PROXY_URL
+  - CHATWOOT_BASE_URL
+  - CHATWOOT_API_KEY
+  - PGHOST
+  - PGPORT
+  - PGUSER
+  - PGPASSWORD
+  - PGDATABASE
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  langfuse:
+    enabled: true
+    trace_name: maria-claude
+  opentelemetry:
+    enabled: true
+    service_name: maria-claude
+    exporter: otlp

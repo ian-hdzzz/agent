@@ -1,0 +1,124 @@
+# =============================================================================
+# Housing IVEQ Agent Configuration
+# =============================================================================
+# Housing services agent for IVEQ Queretaro
+# Handles: Housing procedures, programs, appointments, regularization
+
+name: housing-iveq
+display_name: Agente de Vivienda - IVEQ
+description: |
+  Agente especializado en servicios del IVEQ (Instituto de la Vivienda del
+  Estado de Queretaro). Atiende consultas sobre tramites (constancia de no
+  adeudo, copias/planos, cesion de derechos, instruccion notarial), programas
+  de vivienda (autoproduccion, vivienda para trabajadores, escrituracion),
+  y agendamiento de citas.
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8010
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: VIV
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-housing-iveq
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_housing_programs
+  - get_improvement_programs
+  - get_regularization_info
+  - check_application_status
+  - create_housing_ticket
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: constancia_no_adeudo
+    description: "Constancia de no adeudo para vivienda IVEQ"
+    keywords: ["constancia", "no adeudo", "libre", "deuda"]
+  - code: planos
+    description: "Expedición de copias de planos y documentos de vivienda"
+    keywords: ["planos", "copias", "expedición", "documentos"]
+  - code: cesion
+    description: "Cesión de derechos de vivienda IVEQ"
+    keywords: ["cesión", "derechos", "transferencia", "vivienda"]
+  - code: notarial
+    description: "Instrucción notarial para escrituración de vivienda"
+    keywords: ["notarial", "escritura", "notario", "instrucción"]
+  - code: autoproduccion
+    description: "Programa de autoproducción de vivienda en municipios"
+    keywords: ["autoproducción", "construcción", "municipio", "programa"]
+  - code: trabajadores
+    description: "Vivienda para trabajadores del estado de Querétaro"
+    keywords: ["trabajadores", "estado", "vivienda", "programa"]
+  - code: escriturar
+    description: "Escrituración y regularización de vivienda"
+    keywords: ["escrituración", "regularización", "propiedad", "título"]
+  - code: inquiry
+    description: "Consulta general sobre vivienda y programas IVEQ"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual del IVEQ (Instituto de la Vivienda del Estado
+  de Queretaro).
+
+  REGLAS OBLIGATORIAS:
+  - Respuestas cortas (maximo 2-3 oraciones)
+  - Una pregunta por mensaje
+  - Si una herramienta retorna "formatted_response", usalo EXACTAMENTE
+  - Si el usuario pide hablar con una persona, usa handoff_to_human
+  - Usa SOLO la informacion del knowledge base
+
+  SERVICIOS:
+  1. Tramites - constancia no adeudo, copias/planos, cesion, instruccion notarial
+  2. Programas - autoproduccion, vivienda trabajadores, escrituracion
+  3. Citas - links de agendamiento segun tramite
+
+  CONTACTOS:
+  - Telefono IVEQ: 442 192 9200
+  - WhatsApp tramites: https://wa.link/mifunn
+  - WhatsApp programas: https://walink.co/4e8f99
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: housing-iveq
+    exporter: otlp

@@ -1,0 +1,111 @@
+# =============================================================================
+# Education USEBEQ Agent Configuration
+# =============================================================================
+# Basic education services agent for USEBEQ Queretaro
+# Handles: Enrollment, scholarships, school info, certificates
+
+name: education-usebeq
+display_name: Agente de Educacion - USEBEQ
+description: |
+  Agente especializado en servicios de educacion basica de la USEBEQ
+  (Unidad de Servicios para la Educacion Basica del Estado de Queretaro).
+  Atiende consultas sobre vinculacion parental, preinscripciones, asesoria
+  educativa, becas, certificados y directorio de escuelas.
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8003
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: EDU
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-education-usebeq
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_enrollment_info
+  - get_scholarship_info
+  - check_scholarship_status
+  - get_school_info
+  - get_certificate_info
+  - create_education_ticket
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: vinculacion
+    description: "Vinculación parental y comunicación escuela-familia"
+    keywords: ["vinculación", "padres", "familia", "escuela"]
+  - code: preinscripcion
+    description: "Preinscripciones escolares para educación básica"
+    keywords: ["preinscripción", "inscripción", "escuela", "matrícula"]
+  - code: asesoria
+    description: "Asesoría educativa y orientación escolar"
+    keywords: ["asesoría", "orientación", "educación", "apoyo"]
+  - code: inquiry
+    description: "Consulta general sobre servicios educativos"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual de la USEBEQ (Unidad de Servicios para la
+  Educacion Basica del Estado de Queretaro).
+
+  REGLAS OBLIGATORIAS:
+  - Respuestas cortas (maximo 2-3 oraciones)
+  - Una pregunta por mensaje
+  - Si una herramienta retorna "formatted_response", usalo EXACTAMENTE
+  - Si el usuario pide hablar con una persona, usa handoff_to_human
+  - Usa SOLO la informacion del knowledge base
+
+  SERVICIOS:
+  1. Vinculacion parental - proceso concluyo 16 enero 2026, validar 3-13 febrero
+  2. Preinscripciones - periodo 3-13 de febrero, requiere CURP
+  3. Asesoria educativa - transferir a agente humano
+
+  LINKS IMPORTANTES:
+  - Portal USEBEQ: www.usebeq.edu.mx
+  - Sistema SAID: www.usebeq.edu.mx/said
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: education-usebeq
+    exporter: otlp

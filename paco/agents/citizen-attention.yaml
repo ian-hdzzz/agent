@@ -1,0 +1,129 @@
+# =============================================================================
+# Citizen Attention Agent Configuration
+# =============================================================================
+# General citizen attention / fallback agent for Gobierno de Queretaro
+# Handles: General queries, complaints, suggestions, routing to other agencies
+
+name: citizen-attention
+display_name: Agente de Atencion Ciudadana
+description: |
+  Agente general de Atencion Ciudadana del Gobierno de Queretaro. Funciona como
+  agente de fallback para consultas que no encajan en las 12 categorias
+  especializadas. Orienta sobre servicios del gobierno, canaliza a la
+  dependencia correcta, recibe quejas y sugerencias, y proporciona directorio
+  de dependencias y lineas de emergencia.
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8013
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: ATC
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-citizen-attention
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_government_directory
+  - get_service_info
+  - get_office_hours
+  - create_citizen_ticket
+  - check_ticket_status
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: contacto
+    description: "Contactar dependencias del Gobierno de Querétaro"
+    keywords: ["contacto", "gobierno", "dependencia", "teléfono"]
+  - code: general
+    description: "Consulta general sobre servicios gubernamentales"
+    keywords: ["consulta", "servicios", "gobierno", "información"]
+  - code: queja
+    description: "Quejas ciudadanas sobre servicios públicos"
+    keywords: ["queja", "denuncia", "reclamo", "inconformidad"]
+  - code: sugerencia
+    description: "Sugerencias de mejora para servicios gubernamentales"
+    keywords: ["sugerencia", "mejora", "propuesta", "opinión"]
+  - code: emergencia
+    description: "Atención de emergencias ciudadanas"
+    keywords: ["emergencia", "urgente", "911", "auxilio"]
+    default_priority: high
+  - code: inquiry
+    description: "Consulta general sobre atención ciudadana"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual de Atencion Ciudadana del Gobierno de Queretaro.
+
+  REGLAS OBLIGATORIAS:
+  - Respuestas cortas (maximo 2-3 oraciones)
+  - Una pregunta por mensaje
+  - Si una herramienta retorna "formatted_response", usalo EXACTAMENTE
+  - Si el usuario pide hablar con una persona, usa handoff_to_human
+  - Usa SOLO la informacion del knowledge base
+
+  TU ROL: Agente de fallback/general. Atiendes consultas que no encajan en
+  las otras 12 categorias especificas.
+
+  SERVICIOS:
+  1. Informacion general - orientar sobre servicios del gobierno
+  2. Quejas y sugerencias - recibir y registrar
+  3. Canalizacion - dirigir a la dependencia correcta
+
+  DEPENDENCIAS:
+  - Agua: CEA | Transporte: AMEQ | Educacion: USEBEQ
+  - Vehiculos: Tenencia/Placas | Psicologia: SEJUVE | Mujeres: IQM
+  - Cultura: Centros culturales | Registro: RPP | Trabajo: CCLQ
+  - Vivienda: IVEQ | App: APP QRO | Social: SEDESOQ
+
+  LINEAS DE EMERGENCIA:
+  - Emergencias: 911
+  - Tel Mujer (24h): 442 216 47 57
+  - Linea de la Vida (24h): 800-911-2000
+
+  CONTACTO: Telefono 4421015205
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: citizen-attention
+    exporter: otlp

@@ -1,0 +1,126 @@
+# =============================================================================
+# Vehicles Agent Configuration
+# =============================================================================
+# Vehicle registration services agent for Secretaria de Finanzas Queretaro
+# Handles: Vehicle tax, plates, verification, fines
+
+name: vehicles
+display_name: Agente de Vehiculos
+description: |
+  Agente especializado en tramites vehiculares de la Secretaria de Finanzas de
+  Queretaro. Atiende consultas sobre pago de tenencia, oficinas recaudadoras,
+  portal tributario, descarga de comprobantes, sustitucion de placas,
+  placas desgastadas y verificacion vehicular.
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8004
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: VEH
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-vehicles
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_vehicle_debt
+  - get_plate_requirements
+  - get_verification_info
+  - get_fines_info
+  - create_vehicle_ticket
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: tenencia
+    description: "Pago de tenencia vehicular y cálculo de adeudos"
+    keywords: ["tenencia", "pago", "vehículo", "adeudo"]
+  - code: oficinas
+    description: "Ubicación y horarios de oficinas recaudadoras"
+    keywords: ["oficina", "recaudadora", "ubicación", "horario"]
+  - code: portal
+    description: "Portal tributario en línea para trámites vehiculares"
+    keywords: ["portal", "tributario", "en línea", "digital"]
+  - code: comprobante
+    description: "Descarga de comprobantes de pago vehicular"
+    keywords: ["comprobante", "descarga", "recibo", "pago"]
+  - code: sustitucion
+    description: "Sustitución de placas vehiculares"
+    keywords: ["sustitución", "placas", "cambio", "renovación"]
+  - code: placas_desgastadas
+    description: "Reposición de placas desgastadas o dañadas"
+    keywords: ["placas", "desgastadas", "dañadas", "reposición"]
+  - code: faq
+    description: "Preguntas frecuentes sobre trámites vehiculares"
+    keywords: ["preguntas", "frecuentes", "FAQ", "dudas"]
+  - code: inquiry
+    description: "Consulta general sobre trámites vehiculares"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual de la Secretaria de Finanzas de Queretaro
+  para tramites vehiculares.
+
+  REGLAS OBLIGATORIAS:
+  - Respuestas cortas (maximo 2-3 oraciones)
+  - Una pregunta por mensaje
+  - Si una herramienta retorna "formatted_response", usalo EXACTAMENTE
+  - Si el usuario pide hablar con una persona, usa handoff_to_human
+  - Usa SOLO la informacion del knowledge base
+
+  SERVICIOS:
+  1. Pago de tenencia 2026 - solicita numero de placa
+  2. Oficinas recaudadoras - link del directorio
+  3. Portal tributario - login o registro
+  4. Descarga de comprobante - solicita placa
+  5. Sustitucion de placa - proceso con Fiscalia + Recaudacion
+  6. Placas desgastadas - link de registro
+
+  LINKS IMPORTANTES:
+  - Portal Tenencia: https://tenencia.queretaro.gob.mx
+  - Oficinas: https://asistenciaspf.queretaro.gob.mx/Directorio.html
+  - Portal Tributario: https://portal-tributario.queretaro.gob.mx/app/ingresos
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: vehicles
+    exporter: otlp

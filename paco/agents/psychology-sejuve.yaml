@@ -1,0 +1,115 @@
+# =============================================================================
+# Psychology SEJUVE Agent Configuration
+# =============================================================================
+# Mental health services agent for SEJUVE Queretaro
+# Handles: Psychological attention, crisis management, youth programs
+
+name: psychology-sejuve
+display_name: Agente de Psicologia - SEJUVE
+description: |
+  Agente especializado en atencion psicologica del programa Ser Tranquilidad
+  de SEJUVE (Secretaria de la Juventud de Queretaro). Brinda primeros auxilios
+  emocionales, canalizacion con psicologos, manejo de crisis, informacion
+  sobre recursos de adicciones y programas juveniles. Servicio confidencial.
+
+type: python-langgraph
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 8005
+  memory_limit: 512M
+  health_endpoint: /health
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model:
+  provider: anthropic
+  model_id: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 4096
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
+infrastructure:
+  category_code: PSI
+  orchestrator_endpoint: http://orchestrator:8000
+  docker_service: agent-psychology-sejuve
+
+# =============================================================================
+# Tools Configuration
+# =============================================================================
+tools:
+  - get_psychology_services
+  - get_appointment_availability
+  - get_crisis_resources
+  - get_addiction_resources
+  - get_youth_programs
+  - create_psychology_ticket
+  - handoff_to_human
+
+# =============================================================================
+# Skills / Task Types
+# =============================================================================
+skills:
+  - code: atencion
+    description: "Atención psicológica y acompañamiento emocional"
+    keywords: ["psicología", "atención", "emocional", "terapia"]
+  - code: crisis
+    description: "Manejo de crisis emocional y primeros auxilios psicológicos"
+    keywords: ["crisis", "emergencia", "ansiedad", "apoyo"]
+    default_priority: high
+  - code: inquiry
+    description: "Consulta general sobre servicios de apoyo psicológico"
+    keywords: ["información", "pregunta", "ayuda", "general"]
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres Maria, asistente virtual del programa Ser Tranquilidad de SEJUVE
+  (Secretaria de la Juventud de Queretaro).
+
+  REGLAS OBLIGATORIAS:
+  - Estilo empatico y cercano
+  - Respuestas cortas, sensibles al estado emocional
+  - Si una herramienta retorna "formatted_response", usalo EXACTAMENTE
+  - EN EMERGENCIAS (ideacion suicida, crisis) transfiere INMEDIATAMENTE
+  - No des consejos medicos especificos, solo orienta y canaliza
+
+  MANEJO DE CRISIS:
+  - Ideacion suicida o autolesion: Linea de la Vida 800-911-2000 INMEDIATAMENTE
+  - Emergencia: 911
+  - No intentes dar terapia, solo orienta y canaliza a profesionales
+
+  SERVICIOS:
+  1. Atencion psicologica - programa Ser Tranquilidad, confidencial
+  2. Primeros auxilios emocionales
+  3. Canalizacion con psicologo/a
+
+  LINEAS DE AYUDA:
+  - Linea de la Vida: 800-911-2000 (24h, gratuita)
+  - Linea Joven: 442-214-2700
+  - Emergencias: 911
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ANTHROPIC_API_KEY
+  - DATABASE_URL
+  - REDIS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    service_name: psychology-sejuve
+    exporter: otlp

@@ -1,0 +1,137 @@
+# =============================================================================
+# Maria Voz Agent Configuration
+# =============================================================================
+# Voice-based customer service agent for CEA Queretaro
+# Powered by ElevenLabs Conversational AI
+
+name: maria-voz
+display_name: Maria Voz
+description: |
+  Maria Voz is an AI voice assistant for CEA Queretaro water utility.
+  She handles phone calls for balance inquiries, consumption history,
+  and support ticket creation with natural voice conversations.
+
+type: elevenlabs
+version: 1.0.0
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+runtime:
+  port: 3001
+  memory_limit: 256M
+  health_endpoint: /health
+  pm2:
+    instances: 1
+    exec_mode: fork
+    max_memory_restart: 250M
+    watch: false
+    autorestart: true
+
+# =============================================================================
+# ElevenLabs Agent Configuration
+# =============================================================================
+elevenlabs:
+  agent_id: ${ELEVENLABS_AGENT_ID}
+  voice_id: ${ELEVENLABS_VOICE_ID}
+
+  # Conversation settings
+  conversation:
+    first_message: "Hola, bienvenido a CEA Querétaro. Soy María, tu asistente virtual. ¿En qué puedo ayudarte hoy?"
+    language: es
+    max_duration_seconds: 300
+    turn_timeout: 7
+
+  # ASR/TTS settings
+  asr_quality: high
+  model_id: eleven_turbo_v2
+  stability: 0.5
+  similarity_boost: 0.8
+
+# =============================================================================
+# MCP Tools Configuration
+# =============================================================================
+tools:
+  # CEA SOAP API Tools (via webhooks)
+  - name: get_deuda
+    type: webhook
+    description: Obtiene el saldo y adeudo de un contrato
+    url: ${CEA_TOOLS_URL}/tools/get_deuda
+    method: POST
+
+  - name: get_consumo
+    type: webhook
+    description: Obtiene el historial de consumo
+    url: ${CEA_TOOLS_URL}/tools/get_consumo
+    method: POST
+
+  - name: get_contract_details
+    type: webhook
+    description: Obtiene detalles del contrato
+    url: ${CEA_TOOLS_URL}/tools/get_contract_details
+    method: POST
+
+  # AGORA Ticket Tools
+  - name: create_ticket
+    type: webhook
+    description: Crea un ticket de soporte
+    url: ${AGORA_TOOLS_URL}/tools/create_ticket
+    method: POST
+
+  # Transfer to human
+  - name: transfer_to_human
+    type: client
+    description: Transfiere la llamada a un agente humano
+
+# =============================================================================
+# System Prompt
+# =============================================================================
+system_prompt: |
+  Eres María, asistente telefónica de CEA Querétaro.
+
+  ESTILO DE VOZ:
+  - Habla de forma natural y conversacional
+  - Usa frases cortas y claras
+  - Confirma información importante repitiéndola
+  - Sé paciente si el usuario no entiende
+
+  CAPACIDADES:
+  - Consultar saldos (pide número de contrato de 6 dígitos)
+  - Ver historial de consumo
+  - Crear reportes de fugas y problemas
+  - Transferir a agentes humanos
+
+  FLUJO TÍPICO:
+  1. Saluda y pregunta en qué puedes ayudar
+  2. Pide el número de contrato (repite para confirmar)
+  3. Ejecuta la consulta
+  4. Da la información de forma clara
+  5. Pregunta si necesita algo más
+
+  IMPORTANTE:
+  - Para reportes en vía pública, pide ubicación, no contrato
+  - Si no entiendes algo, pide que lo repitan
+  - Ofrece transferir a humano si el usuario lo solicita
+
+# =============================================================================
+# Environment Variables Required
+# =============================================================================
+env:
+  - ELEVENLABS_API_KEY
+  - ELEVENLABS_AGENT_ID
+  - ELEVENLABS_VOICE_ID
+  - CEA_TOOLS_URL
+  - AGORA_TOOLS_URL
+
+# =============================================================================
+# Telemetry Configuration
+# =============================================================================
+telemetry:
+  enabled: true
+  langfuse:
+    enabled: true
+    trace_name: maria-voz
+  opentelemetry:
+    enabled: true
+    service_name: maria-voz
+    exporter: otlp
