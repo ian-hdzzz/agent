@@ -1,7 +1,9 @@
 services:
   # ClickHouse - Required for Langfuse V3
   clickhouse:
-    image: clickhouse/clickhouse-server:24.12
+    build:
+      context: ./db
+      dockerfile: Dockerfile.clickhouse
     container_name: paco-clickhouse
     restart: unless-stopped
     user: "101:101"
@@ -12,7 +14,6 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - clickhouse_logs:/var/log/clickhouse-server
-      - ./db/clickhouse-config.xml:/etc/clickhouse-server/config.d/keeper.xml:ro
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
       interval: 10s
@@ -23,7 +24,9 @@ services:
 
   # PostgreSQL - Central database for PACO, Langfuse, and agents
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: ./db
+      dockerfile: Dockerfile.postgres
     container_name: paco-postgres
     restart: unless-stopped
     environment:
@@ -32,7 +35,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-paco}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-paco}"]
       interval: 10s
