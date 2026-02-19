@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
-from app.api import agent_builder, agents, auth, codegen, company, executions, hive, infrastructures, infra_codegen, infra_deploy, infra_monitor, infra_upgrade, playground, processes, proxy, settings, skills, tools, users, workflows, ws
+from app.api import agent_builder, agents, auth, codegen, company, executions, hive, infrastructures, infra_codegen, infra_deploy, infra_monitor, infra_upgrade, playground, processes, proxy, settings as settings_api, skills, tools, users, workflows, ws
 from app.core.config import settings
 from app.db.models import Agent, AgentSkill, Base, Skill
 from app.services.skill_filesystem import SkillFilesystemService
@@ -491,7 +491,7 @@ app.include_router(agent_builder.router, prefix="/api")
 app.include_router(hive.router, prefix="/api")
 app.include_router(company.router, prefix="/api")
 app.include_router(processes.router, prefix="/api")
-app.include_router(settings.router, prefix="/api")
+app.include_router(settings_api.router, prefix="/api")
 app.include_router(ws.router)
 
 
