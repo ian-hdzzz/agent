@@ -140,6 +140,41 @@ services:
     networks:
       - paco-network
 
+  # Maria Claude - CEA Customer Service Agent
+  maria-claude:
+    build:
+      context: ./maria-claude
+      dockerfile: Dockerfile
+    container_name: paco-maria-claude
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: "3002"
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER:-paco}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-paco_secret}
+      PGDATABASE: ${POSTGRES_DB:-paco}
+      CEA_API_URL: ${CEA_API_URL:-}
+      CEA_PROXY_URL: ${CEA_PROXY_URL:-}
+      CHATWOOT_API_KEY: ${CHATWOOT_API_KEY:-}
+      CHATWOOT_BASE_URL: ${CHATWOOT_BASE_URL:-}
+    ports:
+      - "3002:3002"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - paco-network
+
   # CEA Tools MCP Server (SSE transport)
   cea-tools:
     build:
