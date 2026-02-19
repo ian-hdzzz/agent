@@ -128,10 +128,15 @@ services:
     environment:
       - AGENT_ID={{ agent.agent_id_slug }}
       - AGENT_NAME={{ agent.display_name or agent.agent_id_slug }}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY_{{ agent.agent_id_slug | upper | replace('-', '_') }}:-${ANTHROPIC_API_KEY}}
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/{{ infra.db_name or infra.name }}
       - REDIS_URL=redis://redis:6379
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+{% if agent.env_vars is defined and agent.env_vars %}
+{% for key, value in agent.env_vars.items() %}
+      - {{ key }}={{ value }}
+{% endfor %}
+{% endif %}
 {% if lightning.enabled %}
       - OTLP_ENDPOINT=${OTLP_ENDPOINT:-}
 {% endif %}

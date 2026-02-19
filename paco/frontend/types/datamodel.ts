@@ -59,6 +59,8 @@ export interface AgentConfig {
   stopSequences?: string[];
   tools?: string[];
   mcpServers?: string[];
+  // Per-agent environment variables (API keys, secrets)
+  envVars?: Record<string, string>;
   // Legacy AutoGen fields (for store.tsx compatibility)
   system_message?: string;
   model_client?: Component<ModelConfig>;

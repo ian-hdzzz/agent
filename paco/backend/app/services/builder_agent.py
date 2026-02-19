@@ -128,7 +128,27 @@ BUILDER_TOOLS = [
                     "type": "object",
                     "description": "Additional SDK configuration",
                 },
+                "env_vars": {
+                    "type": "object",
+                    "description": "Environment variables for this agent (e.g. API keys)",
+                    "additionalProperties": {"type": "string"},
+                },
             },
+        },
+    },
+    {
+        "name": "set_agent_env_vars",
+        "description": "Set or update environment variables (API keys, secrets) for the draft agent. Merges with existing env_vars.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "env_vars": {
+                    "type": "object",
+                    "description": "Key-value pairs of environment variables to set (e.g. {'ANTHROPIC_API_KEY': 'sk-...', 'OPENAI_API_KEY': 'sk-...'})",
+                    "additionalProperties": {"type": "string"},
+                },
+            },
+            "required": ["env_vars"],
         },
     },
     {
@@ -662,6 +682,10 @@ class BuilderAgentService:
             current = agent.sdk_config or {}
             current.update(input["sdk_config"])
             agent.sdk_config = current
+        if "env_vars" in input:
+            current_env = agent.env_vars or {}
+            current_env.update(input["env_vars"])
+            agent.env_vars = current_env
 
         await self.db.commit()
 
@@ -677,6 +701,34 @@ class BuilderAgentService:
         await self.db.commit()
 
         return {"success": True, "agent_id": str(agent.id), "updated": list(input.keys())}
+
+    async def _tool_set_agent_env_vars(
+        self, session: BuilderSession, input: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        if not session.agent_id:
+            return {"error": "No draft agent created yet. Use create_agent_draft first."}
+
+        result = await self.db.execute(
+            select(Agent).where(Agent.id == session.agent_id)
+        )
+        agent = result.scalar_one_or_none()
+        if not agent:
+            return {"error": "Draft agent not found"}
+
+        current_env = agent.env_vars or {}
+        current_env.update(input.get("env_vars", {}))
+        agent.env_vars = current_env
+
+        await self.db.commit()
+
+        # Mask values for the response
+        from app.core.secrets import mask_env_vars
+        return {
+            "success": True,
+            "agent_id": str(agent.id),
+            "env_vars_set": list(input.get("env_vars", {}).keys()),
+            "current_keys": list(current_env.keys()),
+        }
 
     async def _tool_create_skill(
         self, session: BuilderSession, input: Dict[str, Any]

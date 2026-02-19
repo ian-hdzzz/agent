@@ -34,6 +34,9 @@ export const agentSchema = z.object({
 
   // Stop sequences: array of strings that stop generation
   stopSequences: z.array(z.string()).optional(),
+
+  // Environment variables (API keys, secrets)
+  envVars: z.record(z.string(), z.string()).optional(),
 });
 
 /**
@@ -50,4 +53,5 @@ export const defaultAgentValues: Partial<AgentFormValues> = {
   systemPrompt: '',
   temperature: 1.0,
   stopSequences: [],
+  envVars: {},
 };

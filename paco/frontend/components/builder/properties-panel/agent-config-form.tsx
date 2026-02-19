@@ -10,6 +10,7 @@ import { agentSchema, AgentFormValues, defaultAgentValues } from './schemas/agen
 import { ModelSelector } from './fields/model-selector';
 import { SystemPromptEditor } from './fields/system-prompt-editor';
 import { ParameterFields } from './fields/parameter-fields';
+import { EnvVarsEditor } from './fields/env-vars-editor';
 
 interface AgentConfigFormProps {
   defaultValues: Partial<AgentFormValues>;
@@ -86,6 +87,16 @@ export const AgentConfigForm: React.FC<AgentConfigFormProps> = ({
 
       {/* Parameter Fields (Temperature, Max Tokens, Advanced) */}
       <ParameterFields control={control} />
+
+      {/* Credentials & Environment Variables */}
+      <details className="group">
+        <summary className="cursor-pointer text-sm font-semibold text-secondary border-b border-secondary/20 pb-1 select-none">
+          Credentials &amp; Environment Variables
+        </summary>
+        <div className="pt-3">
+          <EnvVarsEditor control={control} />
+        </div>
+      </details>
     </form>
   );
 };

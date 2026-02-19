@@ -171,6 +171,7 @@ class AgentGenerator:
                 "port": agent.port or 3010,
                 "confidentiality_level": agent.confidentiality_level or "INTERNAL",
             },
+            "env_vars": agent.env_vars or {},
             "skills": resolved_skills,
             "tools": resolved_tools,
             "mcp_servers": mcp_servers,

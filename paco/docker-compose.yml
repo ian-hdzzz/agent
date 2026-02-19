@@ -15,7 +15,7 @@ services:
       - clickhouse_data:/var/lib/clickhouse
       - clickhouse_logs:/var/log/clickhouse-server
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -154,7 +154,7 @@ services:
       CHATWOOT_API_KEY: ${CHATWOOT_API_KEY:-}
       CHATWOOT_BASE_URL: ${CHATWOOT_BASE_URL:-}
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3002/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3002/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -174,7 +174,7 @@ services:
       CEA_API_USER: ${CEA_API_USER:-}
       CEA_API_PASSWORD: ${CEA_API_PASSWORD:-}
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -194,7 +194,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-paco}:${POSTGRES_PASSWORD:-paco_secret}@postgres:5432/paco
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/health"]
       interval: 10s
       timeout: 5s
       retries: 3

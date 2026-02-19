@@ -5,6 +5,9 @@ module.exports = {
     env: {
       NODE_ENV: 'production',
       PORT: {{ agent.port }},
+{% for key, value in env_vars.items() %}
+      {{ key }}: '{{ value }}',
+{% endfor %}
     },
     max_memory_restart: '500M',
     instances: 1,

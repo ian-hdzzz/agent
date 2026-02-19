@@ -297,6 +297,13 @@ class ApiClient {
     );
   }
 
+  // Settings endpoints
+  async getGlobalApiKeys() {
+    return this.request<{
+      keys: Array<{ provider: string; configured: boolean; env_var: string }>;
+    }>("/api/settings/api-keys");
+  }
+
   // Health check
   async healthCheck() {
     return this.request<{ status: string; app: string; version: string }>(

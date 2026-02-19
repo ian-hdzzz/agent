@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, CheckCircle, XCircle } from "lucide-react";
+import { ExternalLink, CheckCircle, XCircle, Key } from "lucide-react";
 import { Header } from "@/components/ui/Header";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,12 @@ export default function SettingsPage() {
   const { data: health, isLoading } = useQuery({
     queryKey: ["health"],
     queryFn: () => api.healthCheck(),
+  });
+
+  // Fetch global API keys status
+  const { data: apiKeys, isLoading: apiKeysLoading } = useQuery({
+    queryKey: ["settings", "api-keys"],
+    queryFn: () => api.getGlobalApiKeys(),
   });
 
   const langfuseUrl =
@@ -75,6 +81,62 @@ export default function SettingsPage() {
                     <ExternalLink className="w-4 h-4" />
                   </a>
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Global API Keys */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="font-semibold text-foreground">
+              <Key className="w-4 h-4 inline mr-1.5" />
+              Global API Keys
+            </h2>
+          </div>
+          <div className="card-content">
+            <p className="text-sm text-foreground-muted mb-4">
+              Default API keys configured via environment variables. Individual
+              agents can override these with per-agent credentials.
+            </p>
+            {apiKeysLoading ? (
+              <div className="h-16 flex items-center justify-center">
+                <div className="animate-spin w-6 h-6 border-2 border-coral-500 border-t-transparent rounded-full" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {apiKeys?.keys.map((key) => (
+                  <div
+                    key={key.env_var}
+                    className="flex items-center justify-between py-2 border-b border-border last:border-b-0"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {key.provider}
+                      </p>
+                      <p className="text-xs text-foreground-muted font-mono">
+                        {key.env_var}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {key.configured ? (
+                        <>
+                          <CheckCircle className="w-4 h-4 text-success" />
+                          <span className="text-sm text-success">
+                            Configured
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-4 h-4 text-foreground-muted" />
+                          <span className="text-sm text-foreground-muted">
+                            Not set
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

@@ -12,15 +12,24 @@ from typing import Any, Dict, List, Optional
 class PM2Client:
     """Client for interacting with PM2 process manager."""
 
-    async def _run_pm2_command(self, *args: str) -> Dict[str, Any]:
+    async def _run_pm2_command(
+        self, *args: str, env_override: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
         """Run a PM2 command and return JSON output."""
         cmd = ["pm2", "jlist", *args] if "jlist" in args else ["pm2", *args]
+
+        # Build subprocess environment: inherit host env, merge overrides
+        import os
+        subprocess_env = None
+        if env_override:
+            subprocess_env = {**os.environ, **env_override}
 
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=subprocess_env,
             )
             stdout, stderr = await proc.communicate()
 
@@ -60,17 +69,19 @@ class PM2Client:
 
         return None
 
-    async def start(self, name: str) -> Dict[str, Any]:
-        """Start a process by name."""
+    async def start(
+        self, name: str, env: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """Start a process by name, optionally injecting environment variables."""
         # First check if it exists
         status = await self.status(name)
 
         if status:
             # Process exists, restart it
-            result = await self._run_pm2_command("restart", name)
+            result = await self._run_pm2_command("restart", name, env_override=env)
         else:
             # Try to start from ecosystem config
-            result = await self._run_pm2_command("start", name)
+            result = await self._run_pm2_command("start", name, env_override=env)
 
         if "error" in result:
             raise RuntimeError(result["error"])

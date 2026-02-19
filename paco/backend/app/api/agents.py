@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.core.deps import AdminUser, DbSession, OperatorUser
+from app.core.secrets import mask_env_vars
 from app.db.models import Agent, AgentSkill, AgentTool, Skill, Tool
 from app.services.pm2_client import PM2Client
 from app.services.sdk_options_builder import SDKOptionsBuilder
@@ -254,7 +255,7 @@ async def get_agent(agent_id: UUID, db: DbSession) -> AgentDetailResponse:
         max_budget_usd=float(agent.max_budget_usd) if agent.max_budget_usd else None,
         max_thinking_tokens=agent.max_thinking_tokens,
         sdk_config=agent.sdk_config or {},
-        env_vars=agent.env_vars or {},
+        env_vars=mask_env_vars(agent.env_vars or {}),
         lightning_config=agent.lightning_config or {},
         project_path=agent.project_path,
         allowed_tools=allowed_tools,
@@ -315,11 +316,25 @@ async def update_agent(
     for field in [
         "display_name", "description", "model", "system_prompt",
         "permission_mode", "max_turns", "max_budget_usd",
-        "max_thinking_tokens", "sdk_config", "env_vars", "lightning_config",
+        "max_thinking_tokens", "sdk_config", "lightning_config",
     ]:
         value = getattr(request, field)
         if value is not None:
             setattr(agent, field, value)
+
+    # Merge env_vars: preserve DB values when the incoming value is masked
+    if request.env_vars is not None:
+        existing = agent.env_vars or {}
+        merged = {}
+        for key, value in request.env_vars.items():
+            if isinstance(value, str) and value.startswith("****"):
+                # Preserve the original DB value instead of overwriting with mask
+                if key in existing:
+                    merged[key] = existing[key]
+                # else: drop — was masked but no original exists
+            else:
+                merged[key] = value
+        agent.env_vars = merged
 
     await db.commit()
     await db.refresh(agent)
@@ -364,7 +379,7 @@ async def start_agent(agent_id: UUID, db: DbSession, _: OperatorUser) -> AgentSt
     try:
         agent.status = "starting"
         await db.commit()
-        pm2_status = await pm2.start(agent.pm2_name)
+        pm2_status = await pm2.start(agent.pm2_name, env=agent.env_vars or None)
         agent.status = "running"
         agent.last_health_check = datetime.now(timezone.utc)
         await db.commit()
