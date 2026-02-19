@@ -15,6 +15,7 @@ import {
     buildChatwootContext,
     getChatwootStatus
 } from "./chatwoot.js";
+import { verifyReciboToken, fetchReciboPdf } from "./tools.js";
 import type { WorkflowInput, ChatwootWebhookPayload } from "./types.js";
 
 const app = express();
@@ -59,6 +60,43 @@ app.get("/status", (req, res) => {
         timestamp: new Date().toISOString(),
         uptime: process.uptime()
     });
+});
+
+/**
+ * Recibo PDF download endpoint
+ * Serves the receipt PDF fetched on-demand from the SOAP API
+ */
+app.get("/recibo/:contrato", async (req, res) => {
+    const { contrato } = req.params;
+    const { token, expires, factura } = req.query;
+
+    if (!token || !expires || typeof token !== "string" || typeof expires !== "string") {
+        res.status(403).json({ error: "Missing or invalid token" });
+        return;
+    }
+
+    if (!verifyReciboToken(contrato, token, expires)) {
+        res.status(403).json({ error: "Invalid or expired token" });
+        return;
+    }
+
+    try {
+        const numFactura = typeof factura === "string" ? factura : undefined;
+        const pdfBuffer = await fetchReciboPdf(contrato, numFactura);
+
+        if (!pdfBuffer) {
+            res.status(404).json({ error: "No se pudo obtener el recibo. Intenta de nuevo más tarde." });
+            return;
+        }
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `inline; filename="recibo-${contrato}.pdf"`);
+        res.setHeader("Content-Length", pdfBuffer.length);
+        res.send(pdfBuffer);
+    } catch (error) {
+        console.error(`[/recibo/${contrato}] Error:`, error);
+        res.status(500).json({ error: "Error interno al generar el recibo" });
+    }
 });
 
 /**
@@ -229,18 +267,22 @@ app.post("/chatwoot", async (req, res) => {
         console.log(`[Chatwoot] Processing with Maria...`);
         const result = await runWorkflow(input);
 
-        // Send response back to Chatwoot
-        console.log(`[Chatwoot] Sending response back...`);
-        const sendResult = await sendToChatwoot(
-            context.accountId,
-            context.chatwootConversationId,
-            result.output_text
-        );
-
-        if (sendResult.success) {
-            console.log(`[Chatwoot] Response sent successfully`);
-        } else {
-            console.error(`[Chatwoot] Failed to send response: ${sendResult.error}`);
+        // Send each message separately with a delay to look human
+        console.log(`[Chatwoot] Sending ${result.output_messages.length} message(s) back...`);
+        for (let i = 0; i < result.output_messages.length; i++) {
+            if (i > 0) {
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+            const sendResult = await sendToChatwoot(
+                context.accountId,
+                context.chatwootConversationId,
+                result.output_messages[i]
+            );
+            if (sendResult.success) {
+                console.log(`[Chatwoot] Message ${i + 1}/${result.output_messages.length} sent`);
+            } else {
+                console.error(`[Chatwoot] Failed to send message ${i + 1}: ${sendResult.error}`);
+            }
         }
 
         console.log(`========== CHATWOOT COMPLETE ==========\n`);
@@ -277,11 +319,12 @@ app.listen(PORT, () => {
 ║   Server running on port ${PORT}                              ║
 ║                                                            ║
 ║   Endpoints:                                               ║
-║   • GET  /health     - Health check                        ║
-║   • GET  /status     - Detailed status                     ║
-║   • POST /api/chat   - Main chat endpoint                  ║
-║   • POST /webhook    - n8n/WhatsApp webhook                ║
-║   • POST /chatwoot   - Chatwoot/Agora direct webhook       ║
+║   • GET  /health          - Health check                   ║
+║   • GET  /status          - Detailed status                ║
+║   • GET  /recibo/:contrato - Recibo PDF download           ║
+║   • POST /api/chat        - Main chat endpoint             ║
+║   • POST /webhook         - n8n/WhatsApp webhook           ║
+║   • POST /chatwoot        - Chatwoot/Agora direct webhook  ║
 ║                                                            ║
 ║   Chatwoot: ${chatwootStatus.configured ? "Configured" : "Not configured"}                                 ║
 ║                                                            ║

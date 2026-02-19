@@ -1,0 +1,563 @@
+# ============================================
+# Gobierno Querétaro - Multi-Agent Orchestration
+# LangGraph + Docker Microservices Architecture
+# ============================================
+#
+# Usage:
+#   docker-compose up --build        # Build and start all services
+#   docker-compose up --build -d     # Build and start in background
+#   docker-compose up orchestrator   # Start only orchestrator
+#   docker-compose logs -f           # Follow logs
+#   docker-compose down              # Stop and remove
+#
+# Architecture:
+#   - Tier 0: Orchestrator (routes to specialists)
+#   - Tier 1: 13 Independent Government Service Agents
+#   - Shared: PostgreSQL, Redis
+
+services:
+  # ===== TIER 0: ORCHESTRATOR =====
+  orchestrator:
+    build:
+      context: .
+      dockerfile: orchestrator/Dockerfile
+    container_name: gobierno-orchestrator
+    restart: unless-stopped
+    ports:
+      - "9100:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Agent endpoints (Docker DNS)
+      - AGENT_WATER_URL=http://agent-water-cea:8000
+      - AGENT_TRANSPORT_URL=http://agent-transport-ameq:8000
+      - AGENT_EDUCATION_URL=http://agent-education-usebeq:8000
+      - AGENT_VEHICLES_URL=http://agent-vehicles:8000
+      - AGENT_PSYCHOLOGY_URL=http://agent-psychology-sejuve:8000
+      - AGENT_WOMEN_URL=http://agent-women-iqm:8000
+      - AGENT_CULTURE_URL=http://agent-culture:8000
+      - AGENT_REGISTRY_URL=http://agent-registry-rpp:8000
+      - AGENT_LABOR_URL=http://agent-labor-cclq:8000
+      - AGENT_HOUSING_URL=http://agent-housing-iveq:8000
+      - AGENT_APPQRO_URL=http://agent-appqro:8000
+      - AGENT_SOCIAL_URL=http://agent-social-sedesoq:8000
+      - AGENT_CITIZEN_URL=http://agent-citizen-attention:8000
+      # Admin API
+      - PACO_ADMIN_API_KEY=${PACO_ADMIN_API_KEY:-}
+      # Paco JWT auth (shared secret for accepting Paco JWT tokens)
+      - PACO_JWT_SECRET=${PACO_JWT_SECRET:-}
+      # Rate limiting
+      - RATE_LIMIT_ROUTE=${RATE_LIMIT_ROUTE:-60/minute}
+      - RATE_LIMIT_CLASSIFY=${RATE_LIMIT_CLASSIFY:-120/minute}
+      # Agent-Lightning tracing
+      - OTLP_ENDPOINT=http://jaeger:4317
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ===== TIER 1: INDEPENDENT AGENTS =====
+
+  # Agent 1: Water Services - CEA
+  agent-water-cea:
+    build:
+      context: .
+      dockerfile: agents/water-cea/Dockerfile
+    container_name: gobierno-agent-water-cea
+    restart: unless-stopped
+    ports:
+      - "9101:8000"
+    environment:
+      - AGENT_ID=water-cea
+      - AGENT_NAME=Agente de Agua - CEA
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - CEA_PROXY_URL=${CEA_PROXY_URL:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent 2: Transport - AMEQ
+  agent-transport-ameq:
+    build:
+      context: .
+      dockerfile: agents/transport-ameq/Dockerfile
+    container_name: gobierno-agent-transport-ameq
+    restart: unless-stopped
+    ports:
+      - "9102:8000"
+    environment:
+      - AGENT_ID=transport-ameq
+      - AGENT_NAME=Agente de Transporte - AMEQ
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent 3: Education - USEBEQ
+  agent-education-usebeq:
+    build:
+      context: .
+      dockerfile: agents/education-usebeq/Dockerfile
+    container_name: gobierno-agent-education-usebeq
+    restart: unless-stopped
+    ports:
+      - "9103:8000"
+    environment:
+      - AGENT_ID=education-usebeq
+      - AGENT_NAME=Agente de Educación - USEBEQ
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent 4: Vehicles
+  agent-vehicles:
+    build:
+      context: .
+      dockerfile: agents/vehicles/Dockerfile
+    container_name: gobierno-agent-vehicles
+    restart: unless-stopped
+    ports:
+      - "9104:8000"
+    environment:
+      - AGENT_ID=vehicles
+      - AGENT_NAME=Agente de Trámites Vehiculares
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent 5: Psychology - SEJUVE
+  agent-psychology-sejuve:
+    build:
+      context: .
+      dockerfile: agents/psychology-sejuve/Dockerfile
+    container_name: gobierno-agent-psychology-sejuve
+    restart: unless-stopped
+    ports:
+      - "9105:8000"
+    environment:
+      - AGENT_ID=psychology-sejuve
+      - AGENT_NAME=Agente de Psicología - SEJUVE
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent 6: Women's Services - IQM
+  agent-women-iqm:
+    build:
+      context: .
+      dockerfile: agents/women-iqm/Dockerfile
+    container_name: gobierno-agent-women-iqm
+    restart: unless-stopped
+    ports:
+      - "9106:8000"
+    environment:
+      - AGENT_ID=women-iqm
+      - AGENT_NAME=Agente de Atención a Mujeres - IQM
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent 7: Culture
+  agent-culture:
+    build:
+      context: .
+      dockerfile: agents/culture/Dockerfile
+    container_name: gobierno-agent-culture
+    restart: unless-stopped
+    ports:
+      - "9107:8000"
+    environment:
+      - AGENT_ID=culture
+      - AGENT_NAME=Agente de Cultura
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent 8: Public Registry - RPP
+  agent-registry-rpp:
+    build:
+      context: .
+      dockerfile: agents/registry-rpp/Dockerfile
+    container_name: gobierno-agent-registry-rpp
+    restart: unless-stopped
+    ports:
+      - "9108:8000"
+    environment:
+      - AGENT_ID=registry-rpp
+      - AGENT_NAME=Agente de Registro Público - RPP
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent 9: Labor Conciliation - CCLQ
+  agent-labor-cclq:
+    build:
+      context: .
+      dockerfile: agents/labor-cclq/Dockerfile
+    container_name: gobierno-agent-labor-cclq
+    restart: unless-stopped
+    ports:
+      - "9109:8000"
+    environment:
+      - AGENT_ID=labor-cclq
+      - AGENT_NAME=Agente de Conciliación Laboral - CCLQ
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent 10: Housing - IVEQ
+  agent-housing-iveq:
+    build:
+      context: .
+      dockerfile: agents/housing-iveq/Dockerfile
+    container_name: gobierno-agent-housing-iveq
+    restart: unless-stopped
+    ports:
+      - "9110:8000"
+    environment:
+      - AGENT_ID=housing-iveq
+      - AGENT_NAME=Agente de Vivienda - IVEQ
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent 11: APPQRO Support
+  agent-appqro:
+    build:
+      context: .
+      dockerfile: agents/appqro/Dockerfile
+    container_name: gobierno-agent-appqro
+    restart: unless-stopped
+    ports:
+      - "9111:8000"
+    environment:
+      - AGENT_ID=appqro
+      - AGENT_NAME=Agente de Soporte APPQRO
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent 12: Social Programs - SEDESOQ
+  agent-social-sedesoq:
+    build:
+      context: .
+      dockerfile: agents/social-sedesoq/Dockerfile
+    container_name: gobierno-agent-social-sedesoq
+    restart: unless-stopped
+    ports:
+      - "9112:8000"
+    environment:
+      - AGENT_ID=social-sedesoq
+      - AGENT_NAME=Agente de Programas Sociales - SEDESOQ
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent 13: Citizen Attention
+  agent-citizen-attention:
+    build:
+      context: .
+      dockerfile: agents/citizen-attention/Dockerfile
+    container_name: gobierno-agent-citizen-attention
+    restart: unless-stopped
+    ports:
+      - "9113:8000"
+    environment:
+      - AGENT_ID=citizen-attention
+      - AGENT_NAME=Agente de Atención Ciudadana
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/gobierno
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===== VOICE GATEWAY =====
+
+  voice-gateway:
+    build: ./voice-gateway
+    container_name: gobierno-voice-gateway
+    restart: unless-stopped
+    ports:
+      - "9190:8000"  # Avoids conflict with PACO port range (8000) and ClickHouse (9000)
+    environment:
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      - ORCHESTRATOR_URL=http://orchestrator:8000
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Voice configuration
+      - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID:-cgSgspJ2msm6clMCkdW9}
+      - ELEVENLABS_MODEL_ID=${ELEVENLABS_MODEL_ID:-eleven_turbo_v2}
+      - DEEPGRAM_MODEL=${DEEPGRAM_MODEL:-nova-2}
+      - DEEPGRAM_LANGUAGE=${DEEPGRAM_LANGUAGE:-es-419}
+    depends_on:
+      - orchestrator
+      - redis
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ===== OBSERVABILITY =====
+
+  # Jaeger: Distributed tracing backend for agent-lightning traces
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: gobierno-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC
+      - "4318:4318"     # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16687"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===== SHARED SERVICES =====
+
+  redis:
+    image: redis:7-alpine
+    container_name: gobierno-redis
+    restart: unless-stopped
+    # Port not exposed to host - use internal Docker network (gobierno_redis:6379)
+    # Avoids conflict with existing Redis on host
+    volumes:
+      - redis_data:/data
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: gobierno-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=gobierno
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    # Port not exposed to host - use internal Docker network (gobierno_postgres:5432)
+    # Avoids conflict with agora_postgres on port 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./shared/db/init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+      - ./shared/db/migrations/002_memory_tables.sql:/docker-entrypoint-initdb.d/002_memory_tables.sql:ro
+      - ./shared/db/migrations/003_classifier_metadata.sql:/docker-entrypoint-initdb.d/003_classifier_metadata.sql:ro
+    networks:
+      - gobierno-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d gobierno"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ===== TRAINING (Phase 3 - GPU required) =====
+  # Uncomment when ready for RL training
+
+  # training:
+  #   build:
+  #     context: .
+  #     dockerfile: training/Dockerfile
+  #   container_name: gobierno-training
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   volumes:
+  #     - ./training/checkpoints:/checkpoints
+  #     - ./training/datasets:/data
+  #   environment:
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+  #     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+  #   networks:
+  #     - gobierno-network
+
+  # classifier-model:
+  #   image: vllm/vllm-openai:latest
+  #   container_name: gobierno-classifier-model
+  #   command: --model /checkpoints/classifier-v1 --max-model-len 512
+  #   ports:
+  #     - "8050:8000"
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   volumes:
+  #     - ./training/checkpoints:/checkpoints:ro
+  #   networks:
+  #     - gobierno-network
+
+networks:
+  gobierno-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

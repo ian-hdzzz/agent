@@ -1,0 +1,12 @@
+{
+  "route_id": "R44",
+  "name": "Ruta 44 - Centro a Juriquilla",
+  "stops": [
+    {"name": "Terminal Centro", "lat": 20.5881, "lng": -100.3899},
+    {"name": "Av. Zaragoza", "lat": 20.5920, "lng": -100.3950},
+    {"name": "Blvd. Bernardo Quintana", "lat": 20.6050, "lng": -100.4100},
+    {"name": "Juriquilla Centro", "lat": 20.6380, "lng": -100.4470}
+  ],
+  "frequency_minutes": 15,
+  "operating_hours": "05:30-22:30"
+}

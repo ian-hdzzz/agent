@@ -12,6 +12,7 @@ export { contratosSkill } from "./contratos.js";
 export { conveniosSkill } from "./convenios.js";
 export { reportesSkill } from "./reportes.js";
 export { serviciosSkill } from "./servicios.js";
+export { consumosSkill } from "./consumos.js";
 
 // Re-export for convenience
 import { consultasSkill } from "./consultas.js";
@@ -20,6 +21,7 @@ import { contratosSkill } from "./contratos.js";
 import { conveniosSkill } from "./convenios.js";
 import { reportesSkill } from "./reportes.js";
 import { serviciosSkill } from "./servicios.js";
+import { consumosSkill } from "./consumos.js";
 import type { Skill } from "./base.js";
 import type { CategoryCode } from "../types.js";
 
@@ -32,7 +34,8 @@ export const SKILL_REGISTRY: Record<CategoryCode, Skill> = {
     CTR: contratosSkill,
     CVN: conveniosSkill,
     REP: reportesSkill,
-    SRV: serviciosSkill
+    SRV: serviciosSkill,
+    CNS: consumosSkill
 };
 
 /**

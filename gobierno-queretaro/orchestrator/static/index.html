@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PACO Admin - Memoria Persistente</title>
+    <link rel="stylesheet" href="/admin/static/style.css">
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>PACO Admin</h1>
+            <div class="subtitle">Memoria Persistente del Ciudadano</div>
+        </div>
+        <div class="flex gap-2 items-center">
+            <span class="text-sm text-dim" id="connection-status">Conectando...</span>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="dashboard">Dashboard</div>
+        <div class="tab" data-tab="citizens">Ciudadanos</div>
+        <div class="tab" data-tab="config">Configuraci&oacute;n</div>
+        <div class="tab" data-tab="audit">Auditor&iacute;a</div>
+        <div class="tab" data-tab="apis">APIs</div>
+    </div>
+
+    <div class="content">
+        <!-- Dashboard Tab -->
+        <div id="tab-dashboard">
+            <div class="stat-grid" id="stats-grid">
+                <div class="card stat">
+                    <div class="value" id="stat-memories">-</div>
+                    <div class="label">Memorias Totales</div>
+                </div>
+                <div class="card stat">
+                    <div class="value" id="stat-summaries">-</div>
+                    <div class="label">Res&uacute;menes</div>
+                </div>
+                <div class="card stat">
+                    <div class="value" id="stat-profiles">-</div>
+                    <div class="label">Perfiles</div>
+                </div>
+                <div class="card stat">
+                    <div class="value" id="stat-pending">-</div>
+                    <div class="label">Snapshots Pendientes</div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <h3>Memorias por Scope</h3>
+                <table id="scope-stats-table">
+                    <thead>
+                        <tr><th>Scope</th><th>Memorias</th><th>Estado</th></tr>
+                    </thead>
+                    <tbody id="scope-stats-body"></tbody>
+                </table>
+            </div>
+
+            <div class="card mt-4 flex gap-2">
+                <button class="btn-outline" onclick="app.triggerCleanup()">Ejecutar Limpieza</button>
+                <button class="btn-outline" onclick="app.triggerSummarize()">Ejecutar Resumen Batch</button>
+            </div>
+        </div>
+
+        <!-- Citizens Tab -->
+        <div id="tab-citizens" class="hidden">
+            <div class="search-bar">
+                <input type="text" id="citizen-search" placeholder="Buscar por contact_id o tag...">
+                <button class="btn-primary" onclick="app.searchCitizens()">Buscar</button>
+            </div>
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Contact ID</th>
+                            <th>Conversaciones</th>
+                            <th>Tickets</th>
+                            <th>Categor&iacute;as</th>
+                            <th>&Uacute;ltima Visita</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="citizens-body"></tbody>
+                </table>
+            </div>
+            <div id="citizen-detail" class="hidden"></div>
+        </div>
+
+        <!-- Configuration Tab -->
+        <div id="tab-config" class="hidden">
+            <div class="card">
+                <h3>Configuraci&oacute;n Global</h3>
+                <div id="global-config-form"></div>
+            </div>
+            <div class="card mt-4">
+                <h3>Configuraci&oacute;n por Scope</h3>
+                <div class="scope-list" id="scope-config-list"></div>
+            </div>
+        </div>
+
+        <!-- Audit Tab -->
+        <div id="tab-audit" class="hidden">
+            <div class="search-bar">
+                <input type="text" id="audit-contact" placeholder="Contact ID">
+                <select id="audit-action">
+                    <option value="">Todas las acciones</option>
+                    <option value="created">created</option>
+                    <option value="read">read</option>
+                    <option value="deleted">deleted</option>
+                    <option value="forgotten">forgotten</option>
+                    <option value="anonymized">anonymized</option>
+                </select>
+                <button class="btn-primary" onclick="app.loadAudit()">Filtrar</button>
+            </div>
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Acci&oacute;n</th>
+                            <th>Scope</th>
+                            <th>Ciudadano</th>
+                            <th>Realizado Por</th>
+                            <th>Detalles</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- APIs Tab -->
+        <div id="tab-apis" class="hidden">
+            <div class="stat-grid" id="apis-stats-grid">
+                <div class="card stat">
+                    <div class="value" id="stat-apis-total">-</div>
+                    <div class="label">Total</div>
+                </div>
+                <div class="card stat">
+                    <div class="value" id="stat-apis-active">-</div>
+                    <div class="label">Activas</div>
+                </div>
+                <div class="card stat">
+                    <div class="value" id="stat-apis-mocked">-</div>
+                    <div class="label">Mock</div>
+                </div>
+                <div class="card stat">
+                    <div class="value" id="stat-apis-planned">-</div>
+                    <div class="label">Planeadas</div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <h3>APIs del Gobierno</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Protocolo</th>
+                            <th>Auth</th>
+                            <th>Operaciones</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="apis-body"></tbody>
+                </table>
+            </div>
+            <div id="api-detail" class="hidden"></div>
+        </div>
+    </div>
+
+    <script src="/admin/static/app.js"></script>
+</body>
+</html>

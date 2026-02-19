@@ -9,9 +9,9 @@ import { z } from "zod";
 // AGORA Category Codes
 // ============================================
 
-export type CategoryCode = "CON" | "FAC" | "CTR" | "CVN" | "REP" | "SRV";
+export type CategoryCode = "CON" | "FAC" | "CTR" | "CVN" | "REP" | "SRV" | "CNS";
 
-export const CategorySchema = z.enum(["CON", "FAC", "CTR", "CVN", "REP", "SRV"]);
+export const CategorySchema = z.enum(["CON", "FAC", "CTR", "CVN", "REP", "SRV", "CNS"]);
 
 export interface CategoryDefinition {
     code: CategoryCode;
@@ -49,6 +49,11 @@ export const AGORA_CATEGORIES: Record<CategoryCode, CategoryDefinition> = {
         code: "SRV",
         name: "Servicios Técnicos",
         description: "Instalaciones, revisiones, medidores y trabajos técnicos"
+    },
+    CNS: {
+        code: "CNS",
+        name: "Consumos",
+        description: "Historial de consumo de agua, lecturas y tendencias"
     }
 };
 
@@ -88,6 +93,7 @@ export interface DeudaData {
     totalDeuda: number;
     vencido: number;
     porVencer: number;
+    mensaje?: string;
     conceptos: Array<{
         periodo: string;
         concepto: string;
@@ -188,6 +194,7 @@ export interface WorkflowInput {
 
 export interface WorkflowOutput {
     output_text: string;
+    output_messages: string[];
     category?: CategoryCode;
     subcategory?: SubcategoryCode;
     toolsUsed?: string[];

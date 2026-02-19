@@ -966,6 +966,8 @@ Usa este tool cuando el usuario pregunte por su saldo, deuda, cuánto debe, o qu
                     }
                 }
 
+                formattedResponse += `\n¿Quieres realizar un pago o tienes dudas sobre tu saldo?`;
+
                 return { content: [{ type: "text" as const, text: JSON.stringify({
                     success: true,
                     formatted_response: formattedResponse,
@@ -984,7 +986,7 @@ Usa este tool cuando el usuario pregunte por su saldo, deuda, cuánto debe, o qu
             if (primaryParsed.success && (primaryParsed.totalDeuda ?? 0) === 0) {
                 return { content: [{ type: "text" as const, text: JSON.stringify({
                     success: true,
-                    formatted_response: `Tu contrato ${contrato} no tiene adeudos pendientes.`,
+                    formatted_response: `Tu contrato ${contrato} no tiene adeudos pendientes.\n\n¿Te puedo ayudar con algo más?`,
                     data: { contrato, totalDeuda: 0, mensaje: "sin adeudo" }
                 }) }] };
             }
@@ -1043,6 +1045,8 @@ Usa este tool cuando el usuario pregunte por su saldo, deuda, cuánto debe, o qu
                         formattedResponse += `${emoji} ${label}: $${factura.importe.toFixed(2)} (${factura.estadoTexto})${venceInfo}\n`;
                     }
                 }
+
+                formattedResponse += `\n¿Quieres realizar un pago o tienes dudas sobre tu saldo?`;
 
                 return { content: [{ type: "text" as const, text: JSON.stringify({
                     success: true,
@@ -1897,6 +1901,258 @@ RETORNA:
 );
 
 // ============================================
+// FIND NEAREST LOCATIONS - PostGIS-based location finder
+// ============================================
+
+interface CeaLocationRow {
+    id: number;
+    slug: string;
+    name: string;
+    tipo: string;
+    address_street: string;
+    colonia: string;
+    municipio: string;
+    codigo_postal: string | null;
+    lat: number;
+    lng: number;
+    distance_meters: number;
+    horario: Record<string, string | null>;
+    telefono: string | null;
+    servicios: string[];
+    notas: string | null;
+}
+
+function isLocationOpen(horario: Record<string, string | null>): { is_open: boolean; current_schedule: string | null } {
+    const now = getMexicoDate();
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+
+    let scheduleKey: string;
+    if (dayOfWeek === 0) {
+        scheduleKey = "dom";
+    } else if (dayOfWeek === 6) {
+        scheduleKey = "sab";
+    } else {
+        scheduleKey = "lun_vie";
+    }
+
+    const schedule = horario[scheduleKey];
+    if (!schedule) {
+        return { is_open: false, current_schedule: null };
+    }
+
+    const [openTime, closeTime] = schedule.split("-");
+    if (!openTime || !closeTime) {
+        return { is_open: false, current_schedule: schedule };
+    }
+
+    const [openH, openM] = openTime.split(":").map(Number);
+    const [closeH, closeM] = closeTime.split(":").map(Number);
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const openMinutes = openH * 60 + openM;
+    const closeMinutes = closeH * 60 + closeM;
+
+    return {
+        is_open: currentMinutes >= openMinutes && currentMinutes < closeMinutes,
+        current_schedule: schedule
+    };
+}
+
+function formatDistance(meters: number): string {
+    if (meters < 1000) {
+        return `${Math.round(meters)} m`;
+    }
+    return `${(meters / 1000).toFixed(1)} km`;
+}
+
+export const findNearestLocationsTool = tool(
+    "find_nearest_locations",
+    `Encuentra las oficinas, cajeros y puntos de pago CEA más cercanos al usuario.
+
+PARÁMETROS:
+- lat/lng: Coordenadas GPS (de ubicación compartida por WhatsApp)
+- colonia: Nombre de la colonia del usuario (se busca por coincidencia aproximada)
+- tipo: Filtrar por "oficina", "cajero", o "all" (default: "all")
+- limit: Máximo de resultados (default: 3)
+
+USA ESTA HERRAMIENTA CUANDO:
+- El usuario pregunte "¿dónde puedo pagar?"
+- El usuario pregunte por oficinas o cajeros cercanos
+- El usuario comparta su ubicación GPS
+- El usuario mencione su colonia y pregunte por ubicaciones
+
+IMPORTANTE:
+- Si el usuario comparte ubicación GPS, usa lat/lng
+- Si el usuario dice su colonia, usa el parámetro colonia
+- Si no tienes ni ubicación ni colonia, pregúntale al usuario antes de llamar este tool`,
+    {
+        lat: z.number().optional().describe("Latitud GPS del usuario"),
+        lng: z.number().optional().describe("Longitud GPS del usuario"),
+        colonia: z.string().optional().describe("Nombre de la colonia del usuario"),
+        tipo: z.enum(["oficina", "cajero", "all"]).default("all").describe("Tipo de ubicación a buscar"),
+        limit: z.number().default(3).describe("Máximo de resultados a retornar")
+    },
+    async ({ lat, lng, colonia, tipo, limit }) => {
+        console.log(`[find_nearest_locations] lat=${lat}, lng=${lng}, colonia="${colonia}", tipo=${tipo}, limit=${limit}`);
+
+        const FALLBACK_HQ = "Puedes acudir a cualquiera de las 5 sucursales CEA en Querétaro (Plaza Escobedo, Plaza Candiles, Plaza Vanne, Plaza Altamira, Pabellón Campestre). Línea CEA: 442-211-0066. Horario: Lun-Vie 8:00-17:00.";
+
+        try {
+            let searchLat: number | undefined = lat;
+            let searchLng: number | undefined = lng;
+            let searchMethod = "gps";
+
+            // If no GPS coordinates, try to resolve colonia
+            if ((searchLat === undefined || searchLng === undefined) && colonia) {
+                searchMethod = "colonia";
+                const coloniaName = colonia.toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/\s+/g, " ")
+                    .trim();
+
+                console.log(`[find_nearest_locations] Resolving colonia: "${coloniaName}"`);
+
+                const coloniaResult = await pgQuery<{
+                    name: string;
+                    lat: number;
+                    lng: number;
+                    similarity: number;
+                }>(`
+                    SELECT
+                        name,
+                        ST_Y(center::geometry) AS lat,
+                        ST_X(center::geometry) AS lng,
+                        similarity(name_normalized, $1) AS similarity
+                    FROM colonias_zones
+                    WHERE similarity(name_normalized, $1) > 0.2
+                    ORDER BY similarity(name_normalized, $1) DESC
+                    LIMIT 1
+                `, [coloniaName]);
+
+                if (coloniaResult.length > 0) {
+                    searchLat = coloniaResult[0].lat;
+                    searchLng = coloniaResult[0].lng;
+                    console.log(`[find_nearest_locations] Resolved "${colonia}" → "${coloniaResult[0].name}" (similarity: ${coloniaResult[0].similarity.toFixed(2)}) at ${searchLat}, ${searchLng}`);
+                } else {
+                    console.log(`[find_nearest_locations] Could not resolve colonia "${colonia}"`);
+                    return { content: [{ type: "text" as const, text: JSON.stringify({
+                        success: false,
+                        error: "colonia_not_found",
+                        formatted_response: `No encontré la colonia "${colonia}". ¿Me puedes compartir tu ubicación o decirme otra referencia de zona?\n\n${FALLBACK_HQ}`
+                    }) }] };
+                }
+            }
+
+            // If still no coordinates, ask user
+            if (searchLat === undefined || searchLng === undefined) {
+                return { content: [{ type: "text" as const, text: JSON.stringify({
+                    success: false,
+                    error: "no_location",
+                    formatted_response: "Para encontrar la oficina o cajero más cercano, necesito tu ubicación. ¿Me puedes compartir tu ubicación por WhatsApp o decirme en qué colonia estás?"
+                }) }] };
+            }
+
+            // PostGIS KNN query
+            const tipoFilter = tipo === "all" ? "" : "AND tipo = $4";
+            const params: unknown[] = [searchLng, searchLat, limit];
+            if (tipo !== "all") {
+                params.push(tipo);
+            }
+
+            const locations = await pgQuery<CeaLocationRow>(`
+                SELECT
+                    id, slug, name, tipo, address_street, colonia, municipio, codigo_postal,
+                    ST_Y(geom::geometry) AS lat,
+                    ST_X(geom::geometry) AS lng,
+                    ST_Distance(geom, ST_MakePoint($1, $2)::geography) AS distance_meters,
+                    horario, telefono, servicios, notas
+                FROM cea_locations
+                WHERE is_active = true ${tipoFilter}
+                ORDER BY geom <-> ST_MakePoint($1, $2)::geography
+                LIMIT $3
+            `, params);
+
+            if (locations.length === 0) {
+                return { content: [{ type: "text" as const, text: JSON.stringify({
+                    success: true,
+                    search_method: searchMethod,
+                    data: { locations: [] },
+                    formatted_response: `No encontré ubicaciones cercanas del tipo solicitado.\n\n${FALLBACK_HQ}`
+                }) }] };
+            }
+
+            // Build response
+            const tipoLabels: Record<string, string> = {
+                "oficina": "Oficina",
+                "cajero": "CEAmático",
+                "autopago": "Autopago"
+            };
+
+            const locationResults = locations.map(loc => {
+                const openStatus = isLocationOpen(loc.horario);
+                const mapsLink = `https://maps.google.com/?q=${loc.lat},${loc.lng}`;
+
+                return {
+                    name: loc.name,
+                    tipo: loc.tipo,
+                    tipo_label: tipoLabels[loc.tipo] || loc.tipo,
+                    address: `${loc.address_street}, Col. ${loc.colonia}`,
+                    municipio: loc.municipio,
+                    distance: formatDistance(loc.distance_meters),
+                    distance_meters: Math.round(loc.distance_meters),
+                    is_open: openStatus.is_open,
+                    horario: loc.horario,
+                    current_schedule: openStatus.current_schedule,
+                    telefono: loc.telefono,
+                    servicios: loc.servicios,
+                    maps_link: mapsLink,
+                    notas: loc.notas
+                };
+            });
+
+            // Build WhatsApp-friendly formatted response
+            let formatted = "";
+            for (let i = 0; i < locationResults.length; i++) {
+                const loc = locationResults[i];
+                const num = i + 1;
+                const statusIcon = loc.is_open ? "Abierto" : "Cerrado";
+                const statusEmoji = loc.is_open ? "🟢" : "🔴";
+
+                formatted += `*${num}. ${loc.name}* (${loc.tipo_label})\n`;
+                formatted += `📍 ${loc.address} — ${loc.distance}\n`;
+                formatted += `${statusEmoji} ${statusIcon}`;
+                if (loc.current_schedule) {
+                    formatted += ` | Horario: ${loc.current_schedule}`;
+                }
+                formatted += "\n";
+                if (loc.telefono) {
+                    formatted += `📞 ${loc.telefono}\n`;
+                }
+                formatted += `🗺️ ${loc.maps_link}\n`;
+                if (i < locationResults.length - 1) {
+                    formatted += "\n";
+                }
+            }
+
+            return { content: [{ type: "text" as const, text: JSON.stringify({
+                success: true,
+                search_method: searchMethod,
+                data: { locations: locationResults },
+                formatted_response: formatted
+            }) }] };
+
+        } catch (error) {
+            console.error(`[find_nearest_locations] Error:`, error);
+            return { content: [{ type: "text" as const, text: JSON.stringify({
+                success: false,
+                error: error instanceof Error ? error.message : "Error desconocido",
+                formatted_response: `No pude buscar ubicaciones en este momento.\n\n${FALLBACK_HQ}`
+            }) }] };
+        }
+    }
+);
+
+// ============================================
 // Export all tools
 // ============================================
 
@@ -1912,6 +2168,8 @@ export const allTools = [
     updateTicketTool,
     // Utility Tools
     getReciboPdfTool,
+    // Location Tools
+    findNearestLocationsTool,
     // Conversation Tools
     handoffToHumanTool,
     // Verification Tools

@@ -1,0 +1,11 @@
+{
+  "plate": "QRO1234",
+  "owner_name": "Maria Lopez Hernandez",
+  "vehicle_description": "Toyota Corolla 2020",
+  "year": 2020,
+  "total_debt": 3450.00,
+  "tenencia_current_year": 2100.00,
+  "tenencia_previous_years": 1200.00,
+  "fines": 150.00,
+  "due_date": "2025-03-31"
+}

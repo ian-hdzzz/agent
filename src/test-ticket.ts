@@ -9,7 +9,7 @@ import pg from "pg";
 
 // PostgreSQL configuration
 const PG_CONFIG = {
-    host: process.env.PGHOST || 'whisper-api_agora_postgres',
+    host: process.env.PGHOST || 'localhost',
     port: parseInt(process.env.PGPORT || '5432'),
     user: process.env.PGUSER || 'postgres',
     password: process.env.PGPASSWORD || '',

@@ -1,0 +1,1415 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.content }}",
+                "options": {
+                    "systemMessage": "name: AI Systems Engineer - Mermaid.js Compiler\ndescription: >\n  Specialist in process architecture and Mermaid.js visualization. Converts unstructured process descriptions into logically perfect Spanish Mermaid.js flowcharts.\n\ninstructions:\n  role: >\n    You are an AI Systems Engineer specializing in Process Architecture and Mermaid.js Visualization.\n    Your only task is to convert any unstructured process description into a syntactically flawless and logically coherent Mermaid.js flowchart.\n    You operate with the precision of a compiler—no explanations, no errors.\n\n  execution_protocols:\n    - All output MUST be wrapped in a single Markdown code block: \"```mermaid ... ```\"\n    - You MUST NOT produce any conversational text outside the code block.\n    - The diagram must be complete and correct in one single generation. No retries or revisions.\n\n  analytical_methodology:\n    - Perform deep analysis before generating the diagram.\n    - Distinguish primary flows from parallel or administrative tasks.\n    - Every connection (`-->`) MUST reflect a direct and necessary causal link.\n    - If documents are incomplete or invalid, the system MUST loop back and request corrections from the citizen.\n    - Include a confidence validation step:\n        * If confidence is below 95%, diagram MUST escalate to a Human-in-the-Loop (HITL) review before continuing.\n\n  diagram_structure:\n    orientation: TD  # Top-down layout\n    grouping: >\n      Use `subgraph` blocks for each distinct phase with a single-word identifier.\n    connection_rules: >\n      Define ALL connections (`-->`) ONLY after declaring all nodes and subgraphs, outside any subgraph blocks.\n\n  syntax_protocols:\n    - ALL node labels MUST be enclosed in double quotes `\"...\"` to avoid parsing errors.\n    - NEVER place arrow connections inside a `subgraph` block.\n    - To apply styles, assign a simple ID to each subgraph and use `style <ID> fill:#f0f0f0`.\n\n  output_language: Spanish\n"
+                }
+            },
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 2.2,
+            "position": [
+                -1360,
+                -304
+            ],
+            "id": "9d7dedad-8584-4093-8878-a8a7fd512ef9",
+            "name": "Diagram Generator"
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.content }}",
+                "options": {
+                    "systemMessage": "=name: Process Intelligence Agent\ndescription: >\n  A specialized operational logic analyzer trained in systems thinking and business rule tracing. Its sole purpose is to analyze a business or public sector process and produce a complete, faithful documentation of how it currently works, including logic, actors, decisions, and constraints—but never optimizing or diagramming.\ninstructions:\n  role: >\n    You are a Process Intelligence Agent. Your only job is to analyze an unstructured process description and reconstruct the full operational logic.\n    You do not optimize.\n    You do not simplify.\n    You do not generate diagrams.\n    You do not abstract away decision logic.\n  execution_protocol:\n    - Follow a step-by-step process mapping method based on best practices in process analysis and mapping (e.g., Process Mapping Guide, Theory of Constraints).\n    - Apply the following methodology:\n        1. Define process boundaries (start, end, trigger, outcomes).\n        2. List every activity, action, and handoff—without leaving anything out.\n        3. Sequence the activities in their natural order.\n        4. Identify and model all decision points with conditions and branching paths.\n        5. List all actors or systems involved, with roles and responsibilities.\n        6. Detect any loops, dependencies, or manual handoffs.\n        7. Identify constraints, validation rules, risks, compliance guards, and areas of high friction or delay (referencing Lean or Theory of Constraints principles).\n        8. Organize the output into clearly structured markdown sections (see output_format below).\n  output_structure: markdown\n  output_format: |\n    ### Descripción General del Proceso\n    - ¿Cuál es el propósito o alcance del proceso?\n    - ¿Qué evento lo inicia y qué resultados produce?\n  \n    ### Fases del Proceso\n    **<Nombre de la Fase 1>**\n    - Paso 1: <Descripción>\n    - Paso 2: <Descripción>\n    ...\n    **<Nombre de la Fase 2>**\n    - ...\n  \n    ### Puntos de Decisión\n    1. **<Pregunta / condición>**\n       - Respuesta A → <Acción o siguiente paso>\n       - Respuesta B → <Acción o siguiente paso>\n  \n    ### Actores Involucrados\n    - **<Actor>**: <Rol y acción específica durante qué parte del proceso>\n  \n    ### Herramientas y Sistemas Utilizados\n    - **<Herramienta/Sistema>**: <Función específica en el proceso y en qué pasos se utiliza>\n    - **<Herramienta/Sistema>**: <Integración con otros sistemas si aplica>\n  \n    ### Riesgos y Restricciones\n    - <Reglas de negocio o validaciones críticas>\n    - <Cuellos de botella o riesgos operativos>\n    - <Restricciones regulatorias o de cumplimiento>\n  rules:\n    - Avoid any form of optimization or diagram output.\n    - Keep decision logic fully intact.\n    - Output must be exclusively in the markdown format defined above.\n    - Document all tools, systems, and technologies as they currently exist in the process.\noutput is in spanish.\n"
+                }
+            },
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 2.2,
+            "position": [
+                -1360,
+                -704
+            ],
+            "id": "ccccb295-37b0-4fb1-aeff-f578619f6c40",
+            "name": "Actual Process Mapping"
+        },
+        {
+            "parameters": {
+                "modelName": "models/gemini-2.5-pro",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1,
+            "position": [
+                -1360,
+                -480
+            ],
+            "id": "ae2df117-c17b-4e99-828e-376815914a04",
+            "name": "Google Gemini Chat Model",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "2SjiD53AcwpmWEiS",
+                    "name": "Google Gemini(PaLM) Api account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "description": "Think before you create the diagram "
+            },
+            "type": "@n8n/n8n-nodes-langchain.toolThink",
+            "typeVersion": 1.1,
+            "position": [
+                -1232,
+                -480
+            ],
+            "id": "881abce1-1e48-414e-82cd-47bf98fe19ef",
+            "name": "Think"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "0936a8fa-75da-48c2-a0ce-bd01a04d969f",
+                            "name": "Markdown",
+                            "value": "={{ $json.output.replace(/\\\\n/g, '\\n') }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                -1024,
+                -704
+            ],
+            "id": "a3c50db6-4155-4a0c-9402-fbe67d70e176",
+            "name": "Edit Fields1"
+        },
+        {
+            "parameters": {
+                "jsCode": "// We use the 'pako' library for zlib's Deflate compression.\nconst pako = require('pako');\n\n// 1. Get the Mermaid code from the previous AI node's output.\nconst rawOutput = items[0].json.output;\n\n// 2. Clean the code, remove markdown fences, AND replace the orientation.\nconst mermaidCode = rawOutput.split('\\n').slice(1, -1).join('\\n').replace('graph TD', 'graph LR');\n\n// 3. Compress the clean code directly to a raw byte array (Uint8Array).\nconst compressed = pako.deflate(mermaidCode);\n\n// 4. Encode the raw compressed byte array into a URL-safe Base64 string.\nconst encoded = Buffer.from(compressed)\n  .toString('base64')\n  .replace(/\\+/g, '-')\n  .replace(/\\//g, '_');\n\n// 5. Build the final Kroki URL.\nconst krokiUrl = `https://kroki.io/mermaid/svg/${encoded}`;\n\n// 6. Return the URL as the output of this node.\nreturn {\n  json: {\n    url: krokiUrl\n  }\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -896,
+                -464
+            ],
+            "id": "3d020885-bcbd-4df5-8fa7-8348c57e0ee9",
+            "name": "Code"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "c42dcdc0-98fd-4bda-9089-6f8b1fd9c28e",
+                            "name": "output",
+                            "value": "={{ $json.output }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                -992,
+                -304
+            ],
+            "id": "23967dce-8630-4689-8807-8d54929dfd82",
+            "name": "Edit Fields"
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.content }}",
+                "options": {
+                    "systemMessage": "=name: Process Optimizer Agent\ndescription: >\n  A specialized process transformation architect trained in lean methodologies, digital transformation, and public sector modernization. Its sole purpose is to receive documented process analysis and produce an optimized, citizen-centric redesign with dual implementation paths (digital and paper-based), including automation opportunities and compliance safeguards.\ninstructions:\n  role: >\n    You are a Process Optimizer Agent. Your job is to receive structured process documentation from the Process Intelligence Agent and transform it into an optimized version.\n    You identify inefficiencies and bottlenecks.\n    You propose automation and digitalization opportunities.\n    You maintain compliance and legal requirements.\n    You provide both digital-first and paper-fallback paths.\n    You do not generate diagrams.\n  execution_protocol:\n    - Follow a systematic optimization methodology based on Lean Government, Theory of Constraints, and Digital Transformation best practices.\n    - Apply the following methodology for CURRENT STATE ANALYSIS:\n        1. Define process boundaries (start, end, trigger, outcomes) from received documentation.\n        2. List every activity, action, and handoff—identifying which add value vs. waste.\n        3. Sequence the activities and identify optimization opportunities in the flow.\n        4. Identify and model all decision points—determining which can be automated.\n        5. List all actors or systems involved—identifying role redundancies and optimization potential.\n        6. Detect any loops, dependencies, or manual handoffs—marking elimination candidates.\n        7. Identify constraints, validation rules, risks, compliance guards, and areas of high friction or delay using Lean and Theory of Constraints principles.\n    - Apply the following methodology for OPTIMIZED STATE DESIGN:\n        1. Redefine process boundaries for maximum efficiency (new triggers, streamlined outcomes).\n        2. List only value-adding activities—eliminating or automating non-value tasks.\n        3. Resequence activities for optimal flow and parallel processing where possible.\n        4. Redesign decision points with automated rules while maintaining compliance checkpoints.\n        5. Reassign actors with clear RACI matrix—introducing automation actors where applicable.\n        6. Eliminate unnecessary loops and dependencies—creating straight-through processing.\n        7. Design new constraints and validation rules that protect compliance while reducing friction.\n        8. Create dual implementation paths (digital-first and paper-fallback).\n        9. Define KPIs and metrics for the optimized process.\n        10. Build implementation roadmap with quick wins and transformational changes.\n  output_structure: markdown\n  output_format: |\n    ### Análisis del Proceso Actual\n    - **Proceso analizado**: <Nombre del proceso>\n    - **Límites actuales**: Inicio: <trigger> | Fin: <outcome>\n    - **Duración actual estimada**: <Tiempo total>\n    - **Puntos de dolor principales**: <Lista de problemas críticos>\n    - **Oportunidades de mejora detectadas**: <Resumen de oportunidades>\n    \n    ### Proceso Optimizado - Escenario Digital\n    **Descripción**: Proceso rediseñado con capacidades digitales completas y firma electrónica disponible.\n    **Nuevos límites**: Inicio: <trigger optimizado> | Fin: <outcome mejorado>\n    \n    **<Fase Optimizada 1>**\n    - Paso 1: <Descripción optimizada> [Automatizado: Sí/No] [Herramienta: <nombre>]\n    - Paso 2: <Descripción optimizada> [Automatizado: Sí/No] [Herramienta: <nombre>]\n    - **Handoffs eliminados**: <lista de transferencias removidas>\n    - **Reducción de tiempo estimada**: <% o tiempo>\n    ...\n    \n    **<Fase Optimizada 2>**\n    - ...\n    \n    ### Proceso Optimizado - Escenario Híbrido/Papel\n    **Descripción**: Proceso optimizado cuando no hay firma digital o capacidades digitales limitadas.\n    **Límites adaptativos**: Inicio: <trigger híbrido> | Fin: <outcome híbrido>\n    \n    **<Fase Alternativa 1>**\n    - Paso 1: <Descripción con componente manual> [Punto de digitalización: <dónde>]\n    - Paso 2: <Descripción híbrida> [Validación manual requerida: Sí/No]\n    - **Handoffs manuales optimizados**: <cómo se mejoran las transferencias>\n    ...\n    \n    ### Puntos de Decisión Optimizados\n    1. **<Decisión automatizable>**\n       - Sistema decide automáticamente si: <condición>\n       - Escalamiento humano si: <excepción>\n       - Regla de negocio implementada: <descripción>\n       - Camino A → <acción automatizada>\n       - Camino B → <acción alternativa>\n    \n    ### Actores y Nuevos Roles (Matriz RACI Optimizada)\n    - **<Actor Original>** → **<Rol Optimizado>**: \n      - Responsable de: <tareas>\n      - Accountable para: <decisiones>\n      - Consultado en: <procesos>\n      - Informado sobre: <resultados>\n    - **<Sistema/Bot>**: <Tareas automatizadas que asume>\n    \n    ### Herramientas y Sistemas Propuestos\n    - **<Sistema Actual>** → **<Sistema Propuesto>**: <Mejora específica>\n    - **<Nueva Herramienta>**: <Función y integración>\n    - **APIs Requeridas**: <Integraciones inter-sistemas>\n    \n    ### Loops y Dependencias Eliminadas\n    - **Loop eliminado**: <descripción del ciclo removido> → <proceso lineal resultante>\n    - **Dependencia removida**: <dependencia anterior> → <proceso paralelo o independiente>\n    \n    ### Automatizaciones Implementables\n    - **Automatización Inmediata** (0-3 meses):\n      - <Proceso>: <Tecnología> - ROI: <tiempo>\n      - Actividades manuales reemplazadas: <lista>\n    - **Automatización Medio Plazo** (3-12 meses):\n      - <Proceso>: <Tecnología> - ROI: <tiempo>\n      - Handoffs automatizados: <lista>\n    \n    ### Mejoras en Experiencia Ciudadana\n    - **Tiempo de espera**: De <actual> a <propuesto>\n    - **Puntos de contacto**: De <número actual> a <número propuesto>\n    - **Canales disponibles**: <Lista de canales nuevos>\n    - **Transparencia**: <Mecanismos de seguimiento en tiempo real>\n    \n    ### Mecanismos de Cumplimiento y Auditoría\n    - **<Requisito legal>**: <Cómo se mantiene> + <Trazabilidad>\n    - **Validaciones incorporadas**: <Controles automáticos en puntos críticos>\n    - **Pista de auditoría**: <Mecanismo automático de registro>\n    - **Compliance guards preservados**: <lista de salvaguardas mantenidas>\n    \n    ### Restricciones y Cuellos de Botella Resueltos\n    - **Restricción eliminada**: <descripción> → <solución implementada>\n    - **Cuello de botella resuelto**: <punto de fricción> → <flujo optimizado>\n    - **Nueva restricción necesaria**: <para cumplimiento> → <implementación eficiente>\n    \n    ### KPIs y Métricas del Proceso Optimizado\n    - **Tiempo de ciclo**: Actual: <X> → Meta: <Y> (Reducción: <Z%>)\n    - **Tasa de error**: Actual: <X%> → Meta: <Y%>\n    - **Satisfacción ciudadana**: Método de medición: <descripción>\n    - **Costo por transacción**: Actual: <$X> → Proyectado: <$Y>\n    - **Handoffs reducidos**: De <X> a <Y>\n    - **Decisiones automatizadas**: <X%> del total\n    \n    ### Hoja de Ruta de Implementación\n    **Fase 1 - Quick Wins (0-3 meses)**\n    - <Acción 1>: <Impacto esperado>\n    - <Acción 2>: <Impacto esperado>\n    \n    **Fase 2 - Transformación Media (3-9 meses)**\n    - <Cambio estructural 1>: <Requisitos>\n    - <Cambio estructural 2>: <Requisitos>\n    \n    **Fase 3 - Transformación Completa (9-18 meses)**\n    - <Transformación digital completa>: <Inversión y cambios regulatorios necesarios>\n    \n    ### Requisitos de Implementación\n    - **Tecnológicos**: <Lista de sistemas/herramientas necesarias>\n    - **Normativos**: <Cambios regulatorios requeridos>\n    - **Capacitación**: <Programas de formación necesarios>\n    - **Presupuesto estimado**: <Rango de inversión>\n    \n    ### Riesgos de la Transformación y Mitigación\n    - **<Riesgo>**: <Estrategia de mitigación>\n    - **<Riesgo>**: <Estrategia de mitigación>\n  rules:\n    - Always provide dual paths (digital and paper-based scenarios).\n    - Maintain all legal and compliance requirements from the original process.\n    - Never remove human oversight where legally required.\n    - Output must be exclusively in the markdown format defined above.\n    - Prioritize citizen experience and time reduction.\n    - Include specific technologies and tools, not generic recommendations.\n    - Provide measurable KPIs and realistic implementation timelines.\n    - Document ROI for each automation opportunity.\n    - Explicitly show how loops, dependencies, and handoffs are optimized or eliminated.\n    - Map all constraints and show which are removed vs. which must be preserved for compliance.\noutput is in spanish.\n\n"
+                }
+            },
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 2.2,
+            "position": [
+                -176,
+                -928
+            ],
+            "id": "b41bc3f3-9dcb-463b-821f-e04c7998e12a",
+            "name": "AI Agent"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "632cf7d0-311b-44c7-818d-e5d7e3519de1",
+                            "name": "output",
+                            "value": "={{ $json.output }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                176,
+                -928
+            ],
+            "id": "b4cdad4f-0196-4b5c-b974-30f9540b2a77",
+            "name": "Edit Fields2"
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json }}",
+                "options": {
+                    "systemMessage": "name: AI Systems Engineer - Mermaid.js Compiler\ndescription: >\n  Specialist in process architecture and Mermaid.js visualization. Converts unstructured process descriptions into logically perfect Spanish Mermaid.js flowcharts.\n\ninstructions:\n  role: >\n    You are an AI Systems Engineer specializing in Process Architecture and Mermaid.js Visualization.\n    Your only task is to convert any unstructured process description into a syntactically flawless and logically coherent Mermaid.js flowchart.\n    You operate with the precision of a compiler—no explanations, no errors.\n\n  execution_protocols:\n    - All output MUST be wrapped in a single Markdown code block: \"```mermaid ... ```\"\n    - You MUST NOT produce any conversational text outside the code block.\n    - The diagram must be complete and correct in one single generation. No retries or revisions.\n\n  analytical_methodology:\n    - Perform deep analysis before generating the diagram.\n    - Distinguish primary flows from parallel or administrative tasks.\n    - Every connection (`-->`) MUST reflect a direct and necessary causal link.\n    - If documents are incomplete or invalid, the system MUST loop back and request corrections from the citizen.\n    - Include a confidence validation step:\n        * If confidence is below 95%, diagram MUST escalate to a Human-in-the-Loop (HITL) review before continuing.\n\n  diagram_structure:\n    orientation: TD  # Top-down layout\n    grouping: >\n      Use `subgraph` blocks for each distinct phase with a single-word identifier.\n    connection_rules: >\n      Define ALL connections (`-->`) ONLY after declaring all nodes and subgraphs, outside any subgraph blocks.\n\n  syntax_protocols:\n    - ALL node labels MUST be enclosed in double quotes `\"...\"` to avoid parsing errors.\n    - NEVER place arrow connections inside a `subgraph` block.\n    - To apply styles, assign a simple ID to each subgraph and use `style <ID> fill:#f0f0f0`.\n\n  output_language: Spanish\n\n\n"
+                }
+            },
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 2.2,
+            "position": [
+                880,
+                -1088
+            ],
+            "id": "c45a55c4-e23c-412e-87f5-01373cf0b986",
+            "name": "Diagram Generator1"
+        },
+        {
+            "parameters": {
+                "jsCode": "// We use the 'pako' library for zlib's Deflate compression.\nconst pako = require('pako');\n\n// 1. Get the Mermaid code from the previous AI node's output.\nconst rawOutput = items[0].json.output;\n\n// 2. Clean the code, remove markdown fences, AND replace the orientation.\nconst mermaidCode = rawOutput.split('\\n').slice(1, -1).join('\\n').replace('graph TD', 'graph LR');\n\n// 3. Compress the clean code directly to a raw byte array (Uint8Array).\nconst compressed = pako.deflate(mermaidCode);\n\n// 4. Encode the raw compressed byte array into a URL-safe Base64 string.\nconst encoded = Buffer.from(compressed)\n  .toString('base64')\n  .replace(/\\+/g, '-')\n  .replace(/\\//g, '_');\n\n// 5. Build the final Kroki URL.\nconst krokiUrl = `https://kroki.io/mermaid/svg/${encoded}`;\n\n// 6. Return the URL as the output of this node.\nreturn {\n  json: {\n    url: krokiUrl\n  }\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1216,
+                -944
+            ],
+            "id": "a0fbfe7e-c993-481c-bf1b-cf9df910aa7b",
+            "name": "Code1"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "c42dcdc0-98fd-4bda-9089-6f8b1fd9c28e",
+                            "name": "output",
+                            "value": "={{ $json.output }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                1200,
+                -1088
+            ],
+            "id": "74767944-1034-4c9c-96c3-e45504a773fe",
+            "name": "Edit Fields3"
+        },
+        {
+            "parameters": {
+                "jsCode": "const raw = $json[\"output\"];\n\ntry {\n  // Extract JSON content between ```json and ```\n  const match = raw.match(/```json\\s*([\\s\\S]*?)\\s*```/i);\n  if (!match || !match[1]) {\n    throw new Error(\"JSON block not found in output.\");\n  }\n\n  const jsonString = match[1].trim();\n\n  // Safely parse the extracted JSON\n  const parsed = JSON.parse(jsonString);\n\n  // Return each phase as a separate item\n  return [\n    {\n      json: {\n        phase: \"current_process\",\n        data: parsed.phase_1_understanding\n      }\n    },\n    {\n      json: {\n        phase: \"optimized_process\",\n        data: parsed.phase_2_rebuild\n      }\n    }\n  ];\n} catch (error) {\n  return [{ json: { error: error.message, raw } }];\n}\n"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                368,
+                -928
+            ],
+            "id": "be28a314-5999-42f7-9be3-c05a48750f8e",
+            "name": "Code2"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "968f970f-22a5-4e9f-ba0c-d01474f14bdf",
+                            "leftValue": "={{$json[\"phase\"]}}",
+                            "rightValue": "optimized_process",
+                            "operator": {
+                                "type": "string",
+                                "operation": "equals",
+                                "name": "filter.operator.equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                560,
+                -928
+            ],
+            "id": "6dede510-7196-439b-9947-22ef968b29a3",
+            "name": "If"
+        },
+        {
+            "parameters": {
+                "modelName": "models/gemini-2.5-pro",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1,
+            "position": [
+                -1392,
+                -80
+            ],
+            "id": "67a21939-e01a-4922-8c19-7fbe8e28b882",
+            "name": "Google Gemini Chat Model1",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "2SjiD53AcwpmWEiS",
+                    "name": "Google Gemini(PaLM) Api account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "description": "Think before you create the diagram "
+            },
+            "type": "@n8n/n8n-nodes-langchain.toolThink",
+            "typeVersion": 1.1,
+            "position": [
+                -1200,
+                -48
+            ],
+            "id": "abf513a2-b7f1-4f53-b776-45e5d212f6a1",
+            "name": "Think1"
+        },
+        {
+            "parameters": {
+                "modelName": "models/gemini-2.5-pro",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1,
+            "position": [
+                -208,
+                -768
+            ],
+            "id": "468b430b-bb96-453d-afef-624a389d56af",
+            "name": "Google Gemini Chat Model2",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "2SjiD53AcwpmWEiS",
+                    "name": "Google Gemini(PaLM) Api account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "description": "Think before you create the diagram "
+            },
+            "type": "@n8n/n8n-nodes-langchain.toolThink",
+            "typeVersion": 1.1,
+            "position": [
+                48,
+                -752
+            ],
+            "id": "1e243fd5-c025-42da-9fa2-65dc9278affb",
+            "name": "Think2"
+        },
+        {
+            "parameters": {
+                "modelName": "models/gemini-2.5-pro",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1,
+            "position": [
+                848,
+                -928
+            ],
+            "id": "1319c261-2522-46d9-974e-19e0876a2414",
+            "name": "Google Gemini Chat Model3",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "2SjiD53AcwpmWEiS",
+                    "name": "Google Gemini(PaLM) Api account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "description": "Think before you create the diagram "
+            },
+            "type": "@n8n/n8n-nodes-langchain.toolThink",
+            "typeVersion": 1.1,
+            "position": [
+                1072,
+                -928
+            ],
+            "id": "bdf0cf1b-99a5-4e51-b61d-03e01282e527",
+            "name": "Think3"
+        },
+        {
+            "parameters": {
+                "formTitle": "Process Mapping",
+                "formFields": {
+                    "values": [
+                        {
+                            "fieldLabel": "Nombre del proceso",
+                            "requiredField": true
+                        },
+                        {
+                            "fieldLabel": "Secretaría / Dependencia",
+                            "requiredField": true
+                        },
+                        {
+                            "fieldLabel": "Proceso",
+                            "fieldType": "file",
+                            "multipleFiles": false,
+                            "requiredField": true
+                        },
+                        {
+                            "fieldLabel": "Documentos de Soporte",
+                            "fieldType": "file"
+                        }
+                    ]
+                },
+                "options": {
+                    "appendAttribution": false
+                }
+            },
+            "type": "n8n-nodes-base.formTrigger",
+            "typeVersion": 2.2,
+            "position": [
+                -2784,
+                -304
+            ],
+            "id": "b2b2dfef-392c-4781-80ac-51dea6b1e418",
+            "name": "On form submission",
+            "webhookId": "aa6a028e-8e5b-463e-bc2b-6d6d760927f5"
+        },
+        {
+            "parameters": {
+                "resource": "folder",
+                "name": "={{ $('On form submission').item.json['Nombre del proceso'] }}",
+                "driveId": {
+                    "__rl": true,
+                    "value": "My Drive",
+                    "mode": "list",
+                    "cachedResultName": "My Drive",
+                    "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+                },
+                "folderId": {
+                    "__rl": true,
+                    "value": "1NdEG-eNr-k9HwMNCoRYSTk7KB16wqjyu",
+                    "mode": "list",
+                    "cachedResultName": "Mapped Processes",
+                    "cachedResultUrl": "https://drive.google.com/drive/folders/1NdEG-eNr-k9HwMNCoRYSTk7KB16wqjyu"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.googleDrive",
+            "typeVersion": 3,
+            "position": [
+                -2112,
+                -304
+            ],
+            "id": "6dae0ecd-590d-4c1d-bb51-cce655a5d190",
+            "name": "Create folder",
+            "credentials": {
+                "googleDriveOAuth2Api": {
+                    "id": "EjHFgE31Xt1Nyx8r",
+                    "name": "fcamacholombardo"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "inputDataFieldName": "Proceso",
+                "name": "={{ $('On form submission').item.json['Nombre del proceso'] }}",
+                "driveId": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "My Drive"
+                },
+                "folderId": {
+                    "__rl": true,
+                    "value": "1GQUKoa0MspMGqgn3qM0YGNG-m2YPrXHp",
+                    "mode": "list",
+                    "cachedResultName": "Procesos sin mapear",
+                    "cachedResultUrl": "https://drive.google.com/drive/folders/1GQUKoa0MspMGqgn3qM0YGNG-m2YPrXHp"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.googleDrive",
+            "typeVersion": 3,
+            "position": [
+                -2560,
+                -304
+            ],
+            "id": "5b422146-7738-471d-b524-66e4a36facd4",
+            "name": "Upload file",
+            "credentials": {
+                "googleDriveOAuth2Api": {
+                    "id": "EjHFgE31Xt1Nyx8r",
+                    "name": "fcamacholombardo"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "move",
+                "fileId": {
+                    "__rl": true,
+                    "value": "={{ $('HTTP Request2').item.json.id }}",
+                    "mode": "id"
+                },
+                "driveId": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "My Drive"
+                },
+                "folderId": {
+                    "__rl": true,
+                    "value": "={{ $json.id }}",
+                    "mode": "id"
+                }
+            },
+            "type": "n8n-nodes-base.googleDrive",
+            "typeVersion": 3,
+            "position": [
+                -1888,
+                -304
+            ],
+            "id": "8eb8bf5d-1d51-4d08-8b8e-13a4e8babafc",
+            "name": "Move file",
+            "credentials": {
+                "googleDriveOAuth2Api": {
+                    "id": "EjHFgE31Xt1Nyx8r",
+                    "name": "fcamacholombardo"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://www.googleapis.com/drive/v3/files/{{ $json.id }}/copy",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "googleDriveOAuth2Api",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "=\n\n     {\n       \"name\": \"{{ $json.name }}\",\n       \"mimeType\": \"application/vnd.google-apps.document\"\n     } ",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                -2336,
+                -304
+            ],
+            "id": "b8aa60f5-8668-4cdb-b7e8-40cc51dedbcb",
+            "name": "HTTP Request2",
+            "credentials": {
+                "googleDriveOAuth2Api": {
+                    "id": "EjHFgE31Xt1Nyx8r",
+                    "name": "fcamacholombardo"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "get",
+                "documentURL": "={{ $json.id }}"
+            },
+            "type": "n8n-nodes-base.googleDocs",
+            "typeVersion": 2,
+            "position": [
+                -1664,
+                -304
+            ],
+            "id": "43e1f4e6-baee-46b3-9aef-3e4562aed5ed",
+            "name": "Get a document",
+            "credentials": {
+                "googleDocsOAuth2Api": {
+                    "id": "4QPasR2d1SSZxygL",
+                    "name": "fcamacholombardo@gmail.com"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "pageId": {
+                    "__rl": true,
+                    "value": "https://www.notion.so/Procesos-23e31d8762438016a65ae59b43137c07",
+                    "mode": "url"
+                },
+                "title": "={{ $('Move file').item.json.name }}",
+                "simple": false,
+                "blockUi": {
+                    "blockValues": [
+                        {
+                            "richText": true,
+                            "text": {
+                                "text": [
+                                    {
+                                        "text": "Documento Proceso Actual ",
+                                        "isLink": true,
+                                        "textLink": "=https://docs.google.com/document/d/{{ $('Move file').item.json.id }}/edit",
+                                        "annotationUi": {
+                                            "bold": true
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "richText": true,
+                            "text": {
+                                "text": [
+                                    {
+                                        "text": "Diagrama Proceso Actual",
+                                        "isLink": true,
+                                        "textLink": "={{ $json.url }}",
+                                        "annotationUi": {
+                                            "bold": true
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.notion",
+            "typeVersion": 2.2,
+            "position": [
+                -224,
+                -592
+            ],
+            "id": "c0d65613-b32a-4b7a-8dd9-96b775459871",
+            "name": "Create a page1",
+            "credentials": {
+                "notionApi": {
+                    "id": "I7mnQritezQqKh3Q",
+                    "name": "Notion account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "0936a8fa-75da-48c2-a0ce-bd01a04d969f",
+                            "name": "Markdown",
+                            "value": "=### Proceso Actual\n\n**Descripción:**\n{{ $json.data.description }}\n\n---\n\n### Fases del Proceso\n\n{{ $json.data.phases.map(p => `#### ${p.phase}\\n` + p.activities.map(a => `- ${a}`).join('\\n')).join('\\n\\n') }}\n\n---\n\n### Puntos de Decisión\n\n{{ $json.data.decision_points.map(p => `- ${p}`).join('\\n') }}\n\n---\n\n### Actores Involucrados\n\n{{ $json.data.actors.map(a => `- ${a}`).join('\\n') }}\n\n---\n\n### Herramientas y Sistemas\n\n{{ $json.data.tools_and_systems.map(t => `- ${t}`).join('\\n') }}\n\n---\n\n### Puntos de Dolor\n\n{{ $json.data.pain_points.map(p => `- ${p}`).join('\\n') }}\n",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                896,
+                -784
+            ],
+            "id": "e0588627-6a35-4c5a-9d65-92c0b0a3d8bd",
+            "name": "Edit Fields4"
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "combineBy": "combineByPosition",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3.2,
+            "position": [
+                -608,
+                -688
+            ],
+            "id": "4656ffcc-a944-499b-81c3-1c22cfa572cc",
+            "name": "Merge",
+            "executeOnce": true
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "combineBy": "combineByPosition",
+                "numberInputs": 3,
+                "options": {}
+            },
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3.2,
+            "position": [
+                1744,
+                -832
+            ],
+            "id": "94748473-8bb0-488a-b039-87b77d1b2a60",
+            "name": "Merge1",
+            "executeOnce": true
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://api.notion.com/v1/blocks/{{ $json.id }}/children",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "notionApi",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "children",
+                            "value": "={{ $('Notion Markdown').item.json.output }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                64,
+                -592
+            ],
+            "id": "bd980d24-f28e-4eae-9d5f-36e103895360",
+            "name": "HTTP Request3",
+            "credentials": {
+                "notionApi": {
+                    "id": "I7mnQritezQqKh3Q",
+                    "name": "Notion account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "inputMarkdown": "={{ $json.Markdown }}"
+            },
+            "type": "n8n-nodes-notion-markdown.notionMarkdown",
+            "typeVersion": 1,
+            "position": [
+                -832,
+                -704
+            ],
+            "id": "d3da4cf4-d2ff-4fb1-9b5d-01950eba72a0",
+            "name": "Notion Markdown"
+        },
+        {
+            "parameters": {
+                "inputMarkdown": "={{ $json.Markdown }}"
+            },
+            "type": "n8n-nodes-notion-markdown.notionMarkdown",
+            "typeVersion": 1,
+            "position": [
+                1056,
+                -784
+            ],
+            "id": "58a91138-4f0d-4e05-8db1-932b6ccfce03",
+            "name": "Notion Markdown1"
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "combineBy": "combineByPosition",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3.2,
+            "position": [
+                400,
+                -608
+            ],
+            "id": "5e113e0b-1031-4460-9038-5b8ad38b9f2c",
+            "name": "Merge2",
+            "executeOnce": true
+        },
+        {
+            "parameters": {
+                "pageId": {
+                    "__rl": true,
+                    "value": "={{ $('Create a page1').item.json.id }}",
+                    "mode": "id"
+                },
+                "title": "=Proceso Sugerido {{ $('Move file').item.json.name }} ",
+                "simple": false,
+                "blockUi": {
+                    "blockValues": [
+                        {
+                            "richText": true,
+                            "text": {
+                                "text": [
+                                    {
+                                        "text": "Diagrama Proceso Sugerido",
+                                        "isLink": true,
+                                        "textLink": "={{ $json.url }}",
+                                        "annotationUi": {
+                                            "bold": true
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.notion",
+            "typeVersion": 2.2,
+            "position": [
+                608,
+                -608
+            ],
+            "id": "3eb199be-2bbf-446f-801b-86d11c8a251d",
+            "name": "Create a page",
+            "credentials": {
+                "notionApi": {
+                    "id": "I7mnQritezQqKh3Q",
+                    "name": "Notion account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://api.notion.com/v1/blocks/{{ $json.id }}/children",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "notionApi",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "children",
+                            "value": "={{ $('Notion Markdown1').item.json.output }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                832,
+                -608
+            ],
+            "id": "77a4268b-374e-42ac-b1c4-6a7325a30db8",
+            "name": "HTTP Request4",
+            "credentials": {
+                "notionApi": {
+                    "id": "I7mnQritezQqKh3Q",
+                    "name": "Notion account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "resource": "block",
+                "operation": "getAll",
+                "blockId": {
+                    "__rl": true,
+                    "value": "={{ $('Create a page1').item.json.id }}",
+                    "mode": "id"
+                },
+                "returnAll": true,
+                "fetchNestedBlocks": true
+            },
+            "type": "n8n-nodes-base.notion",
+            "typeVersion": 2.2,
+            "position": [
+                1056,
+                -608
+            ],
+            "id": "e671a657-6695-462e-8a64-53d9efee11bf",
+            "name": "Get many child blocks",
+            "executeOnce": true,
+            "credentials": {
+                "notionApi": {
+                    "id": "I7mnQritezQqKh3Q",
+                    "name": "Notion account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "resource": "block",
+                "blockId": {
+                    "__rl": true,
+                    "value": "={{ $json.data[1].id }}",
+                    "mode": "id"
+                },
+                "blockUi": {
+                    "blockValues": [
+                        {
+                            "richText": true,
+                            "text": {
+                                "text": [
+                                    {
+                                        "textType": "mention",
+                                        "mentionType": "page",
+                                        "page": "={{ $('Create a page').item.json.id }}",
+                                        "annotationUi": {}
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.notion",
+            "typeVersion": 2.2,
+            "position": [
+                1504,
+                -608
+            ],
+            "id": "7685f07e-cd28-4068-bffa-fda526f18558",
+            "name": "Append a block",
+            "credentials": {
+                "notionApi": {
+                    "id": "I7mnQritezQqKh3Q",
+                    "name": "Notion account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "aggregate": "aggregateAllItemData",
+                "include": "specifiedFields",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.aggregate",
+            "typeVersion": 1,
+            "position": [
+                1280,
+                -608
+            ],
+            "id": "afe657be-ca39-41cf-9755-05e66190c824",
+            "name": "Aggregate"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "0936a8fa-75da-48c2-a0ce-bd01a04d969f",
+                            "name": "Markdown",
+                            "value": "=### Proceso Actual\n\n**Descripción:**\n{{ $json.data.description }}\n\n---\n\n### Fases del Proceso\n\n{{ $json.data.phases.map(p => `#### ${p.phase}\\n` + p.activities.map(a => `- ${a}`).join('\\n')).join('\\n\\n') }}\n\n---\n\n### Puntos de Decisión\n\n{{ $json.data.decision_points.map(p => `- ${p}`).join('\\n') }}\n\n---\n\n### Actores Involucrados\n\n{{ $json.data.actors.map(a => `- ${a}`).join('\\n') }}\n\n---\n\n### Herramientas y Sistemas\n\n{{ $json.data.tools_and_systems.map(t => `- ${t}`).join('\\n') }}\n\n---\n\n### Puntos de Dolor\n\n{{ $json.data.pain_points.map(p => `- ${p}`).join('\\n') }}\n",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                864,
+                -1280
+            ],
+            "id": "2386757c-bd09-4d3c-a087-75c75d01316e",
+            "name": "Edit Fields5"
+        },
+        {
+            "parameters": {
+                "inputMarkdown": "={{ $json.Markdown }}"
+            },
+            "type": "n8n-nodes-notion-markdown.notionMarkdown",
+            "typeVersion": 1,
+            "position": [
+                1120,
+                -1280
+            ],
+            "id": "b4f34001-6a73-4fd3-971b-c10e8bff02ea",
+            "name": "Notion Markdown2"
+        }
+    ],
+    "connections": {
+        "Diagram Generator": {
+            "main": [
+                [
+                    {
+                        "node": "Code",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Edit Fields",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Actual Process Mapping": {
+            "main": [
+                [
+                    {
+                        "node": "Edit Fields1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Google Gemini Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Actual Process Mapping",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Think": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Actual Process Mapping",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Edit Fields1": {
+            "main": [
+                [
+                    {
+                        "node": "Notion Markdown",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code": {
+            "main": [
+                [
+                    {
+                        "node": "Merge",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Edit Fields": {
+            "main": [
+                []
+            ]
+        },
+        "AI Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Edit Fields2",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Edit Fields2": {
+            "main": [
+                [
+                    {
+                        "node": "Code2",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Diagram Generator1": {
+            "main": [
+                [
+                    {
+                        "node": "Code1",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Edit Fields3",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code1": {
+            "main": [
+                [
+                    {
+                        "node": "Merge1",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Edit Fields3": {
+            "main": [
+                []
+            ]
+        },
+        "Code2": {
+            "main": [
+                [
+                    {
+                        "node": "If",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "If": {
+            "main": [
+                [
+                    {
+                        "node": "Diagram Generator1",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Edit Fields5",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Edit Fields4",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Google Gemini Chat Model1": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Diagram Generator",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Think1": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Diagram Generator",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Google Gemini Chat Model2": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Think2": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Google Gemini Chat Model3": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Diagram Generator1",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Think3": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Diagram Generator1",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "On form submission": {
+            "main": [
+                [
+                    {
+                        "node": "Upload file",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create folder": {
+            "main": [
+                [
+                    {
+                        "node": "Move file",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Upload file": {
+            "main": [
+                [
+                    {
+                        "node": "HTTP Request2",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Move file": {
+            "main": [
+                [
+                    {
+                        "node": "Get a document",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTTP Request2": {
+            "main": [
+                [
+                    {
+                        "node": "Create folder",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get a document": {
+            "main": [
+                [
+                    {
+                        "node": "Actual Process Mapping",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Diagram Generator",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create a page1": {
+            "main": [
+                [
+                    {
+                        "node": "HTTP Request3",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Edit Fields4": {
+            "main": [
+                [
+                    {
+                        "node": "Notion Markdown1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Merge": {
+            "main": [
+                [
+                    {
+                        "node": "Create a page1",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "AI Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Merge1": {
+            "main": [
+                [
+                    {
+                        "node": "Merge2",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTTP Request3": {
+            "main": [
+                [
+                    {
+                        "node": "Merge2",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Notion Markdown": {
+            "main": [
+                [
+                    {
+                        "node": "Merge",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Notion Markdown1": {
+            "main": [
+                [
+                    {
+                        "node": "Merge1",
+                        "type": "main",
+                        "index": 2
+                    }
+                ]
+            ]
+        },
+        "Merge2": {
+            "main": [
+                [
+                    {
+                        "node": "Create a page",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create a page": {
+            "main": [
+                [
+                    {
+                        "node": "HTTP Request4",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTTP Request4": {
+            "main": [
+                [
+                    {
+                        "node": "Get many child blocks",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get many child blocks": {
+            "main": [
+                [
+                    {
+                        "node": "Aggregate",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Append a block": {
+            "main": [
+                []
+            ]
+        },
+        "Aggregate": {
+            "main": [
+                [
+                    {
+                        "node": "Append a block",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Edit Fields5": {
+            "main": [
+                [
+                    {
+                        "node": "Notion Markdown2",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Notion Markdown2": {
+            "main": [
+                [
+                    {
+                        "node": "Merge1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "dc7126dd10f67464ec9fd1fe320b5d1ee36dcdcfe60a2f65b0efa2ce8bec068f"
+    }
+}

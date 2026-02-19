@@ -1,0 +1,24 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+  <soapenv:Body>
+    <getFacturasResponse>
+      <Factura>
+        <periodo>1</periodo>
+        <año>2025</año>
+        <importeTotal>450.00</importeTotal>
+        <estado>4</estado>
+      </Factura>
+      <Factura>
+        <periodo>2</periodo>
+        <año>2025</año>
+        <importeTotal>380.50</importeTotal>
+        <estado>2</estado>
+      </Factura>
+      <Factura>
+        <periodo>3</periodo>
+        <año>2025</año>
+        <importeTotal>420.00</importeTotal>
+        <estado>2</estado>
+      </Factura>
+    </getFacturasResponse>
+  </soapenv:Body>
+</soapenv:Envelope>

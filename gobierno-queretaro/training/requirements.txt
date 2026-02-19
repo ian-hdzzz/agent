@@ -1,0 +1,14 @@
+# Training dependencies for APO and RL
+agentlightning[apo,verl]>=0.3.0
+
+# LLM clients
+openai>=2.0.0
+anthropic>=0.40.0
+
+# Data handling
+pydantic>=2.10.0
+
+# ML (installed by agentlightning[verl] but pinned for reproducibility)
+# torch==2.8.0
+# vllm==0.10.2
+# flash-attn

@@ -1,0 +1,18 @@
+{
+  "routes": [
+    {
+      "route_id": "R44",
+      "name": "Ruta 44 - Centro a Juriquilla",
+      "estimated_time_minutes": 45,
+      "fare": 8.50,
+      "transfers": 0
+    },
+    {
+      "route_id": "R19-R44",
+      "name": "Ruta 19 + Transbordo Ruta 44",
+      "estimated_time_minutes": 55,
+      "fare": 11.00,
+      "transfers": 1
+    }
+  ]
+}

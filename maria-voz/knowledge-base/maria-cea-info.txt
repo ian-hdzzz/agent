@@ -1,0 +1,202 @@
+# María - Asistente Virtual de CEA Querétaro
+## Información General para Base de Conocimiento
+
+---
+
+## INFORMACIÓN DE CEA QUERÉTARO
+
+CEA Querétaro es la Comisión Estatal de Aguas del estado de Querétaro, México.
+Proporciona servicios de agua potable, alcantarillado y saneamiento.
+
+### Horarios de Atención
+- Lunes a viernes: 8:00 AM a 3:00 PM
+- Sábados: 9:00 AM a 1:00 PM
+- Domingos: Cerrado
+
+### Teléfonos de Atención
+- Atención al cliente: 442-238-8200
+- WhatsApp: 442-238-8200
+- Emergencias: 442-238-8200
+
+### Dirección Principal
+Boulevard Bernardo Quintana 519
+Colonia Arboledas
+Querétaro, Qro.
+CP 76140
+
+---
+
+## OPCIONES DE PAGO
+
+Los usuarios pueden pagar su recibo de agua de las siguientes formas:
+
+1. **En línea**: En la página ceaqro.gob.mx, sección "Pago en línea"
+
+2. **Tiendas de conveniencia**:
+   - OXXO
+   - 7-Eleven
+   - Circle K
+   - Tiendas Extra
+
+3. **Bancos autorizados**:
+   - Banorte
+   - BBVA
+   - Santander
+   - Banco Azteca
+   - BanCoppel
+
+4. **Oficinas de CEA**: En cualquier sucursal con efectivo o tarjeta
+
+5. **Cajeros automáticos**: En cajeros de Banorte con número de contrato
+
+---
+
+## PROGRAMAS Y APOYOS
+
+### Tarifa Preferencial para Adultos Mayores
+- Descuento del 50% en servicio de agua
+- Requisitos: Mayor de 65 años, titular del contrato
+- Documentos: INE, CURP, comprobante de domicilio
+
+### Tarifa para Personas con Discapacidad
+- Descuento del 50% en servicio de agua
+- Requisitos: Credencial de discapacidad vigente
+- Documentos: Credencial IMSS o DIF, INE, comprobante de domicilio
+
+### Convenios de Pago
+- Disponibles para adeudos mayores a 3 meses
+- Se puede pagar hasta en 12 mensualidades
+- Requiere enganche del 20% del adeudo
+- Tramitar en oficinas con INE del titular
+
+---
+
+## TRÁMITES COMUNES
+
+### Contratación de Servicio Nuevo
+1. Acudir a oficinas de CEA
+2. Presentar: Escrituras o contrato de arrendamiento, INE, CURP
+3. Pago de derechos de conexión
+4. Instalación en 5 a 10 días hábiles
+
+### Cambio de Titular
+1. Acudir a oficinas de CEA
+2. El titular anterior debe estar presente o enviar carta poder
+3. Documentos: INE de ambos, comprobante de propiedad
+4. Sin costo si no hay adeudo
+
+### Baja de Servicio
+1. Solicitar en oficinas de CEA
+2. No debe haber adeudos pendientes
+3. Se retira el medidor en 5 días hábiles
+4. Se devuelve el depósito de garantía
+
+---
+
+## REPORTES DE SERVICIO
+
+### Fugas en Vía Pública
+- No se necesita número de contrato
+- Solo proporcionar ubicación exacta (calle, entre calles, colonia)
+- Atención en máximo 24 horas
+
+### Fugas en Medidor
+- Se requiere número de contrato
+- Técnico visita en 24 a 48 horas
+- Sin costo si la fuga es en el medidor de CEA
+
+### Problemas de Drenaje
+- Reportar ubicación exacta
+- Atención urgente si hay desbordamiento
+- Servicio de desazolve sin costo adicional
+
+### Falta de Agua
+- Reportar con número de contrato
+- Verificar si hay corte por adeudo
+- Revisar si hay trabajos programados en la zona
+
+### Calidad del Agua
+- Reportar con número de contrato
+- Se programa visita de técnico
+- Toma de muestras gratuita
+
+---
+
+## INFORMACIÓN SOBRE RECIBOS
+
+### Lectura del Medidor
+- Se toma cada mes
+- El consumo se mide en metros cúbicos (m³)
+- Un metro cúbico equivale a 1,000 litros
+
+### Consumo Promedio
+- Una familia de 4 personas consume aproximadamente 15 a 20 m³ al mes
+- Consumo alto puede indicar fugas internas
+
+### Fecha de Vencimiento
+- El recibo tiene 15 días de gracia después de la fecha límite
+- Después se aplican recargos del 2% mensual
+
+### Recibo Digital
+- Se puede activar en ceaqro.gob.mx
+- Llega al correo electrónico registrado
+- También disponible por WhatsApp
+
+---
+
+## PREGUNTAS FRECUENTES
+
+### ¿Por qué mi consumo aumentó?
+Posibles causas:
+1. Fuga en tuberías internas
+2. Fuga en WC (inodoro)
+3. Más personas en casa
+4. Llenado de alberca o cisterna
+
+### ¿Cómo detecto una fuga?
+1. Cerrar todas las llaves de agua
+2. Revisar si el medidor sigue girando
+3. Si gira, hay fuga en la instalación interna
+
+### ¿Qué hago si no tengo agua?
+1. Verificar que no haya corte por adeudo
+2. Revisar la llave de paso principal
+3. Preguntar a vecinos si tienen el mismo problema
+4. Reportar a CEA si el problema persiste
+
+### ¿Cómo solicito factura?
+1. Enviar RFC por WhatsApp al 442-238-8200
+2. O solicitarla en oficinas de CEA
+3. Se genera en 24 a 48 horas
+
+---
+
+## INFORMACIÓN DE CONTACTO PARA CASOS ESPECIALES
+
+Para trámites que requieren atención presencial:
+- Cambio de titular
+- Convenios de pago
+- Contratación de servicio nuevo
+- Baja de servicio
+- Aclaraciones de adeudo
+
+Estos trámites no se pueden realizar por teléfono.
+El usuario debe acudir a oficinas de CEA con su documentación.
+
+---
+
+## NOTAS PARA EL AGENTE DE VOZ
+
+1. Siempre confirmar el número de contrato deletreándolo dígito por dígito
+
+2. Para montos de dinero, decir "quinientos pesos con veinte centavos" en lugar de "$500.20"
+
+3. Cuando el usuario necesite enviar fotos o documentos, dirigirlo a WhatsApp
+
+4. Si el usuario está frustrado o el problema es complejo, transferir a un agente humano
+
+5. Los tickets solo pueden ser cerrados por agentes humanos, no por María
+
+6. Para fugas en vía pública NO se necesita contrato, solo ubicación exacta
+
+7. Siempre dar el folio del reporte al usuario, deletreándolo claramente

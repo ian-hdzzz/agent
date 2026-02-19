@@ -1,0 +1,167 @@
+# ============================================
+# Gobierno Queretaro - Production Overrides
+# ============================================
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Changes from base:
+#   - All ports bound to 127.0.0.1 (Traefik handles external access)
+#   - Resource limits per container (CPU + memory)
+#   - JSON log rotation (50MB, 5 files)
+#   - PostgreSQL tuning for production
+#
+
+x-agent-defaults: &agent-defaults
+  deploy:
+    resources:
+      limits:
+        cpus: '0.5'
+        memory: 512M
+  logging:
+    driver: json-file
+    options:
+      max-size: "50m"
+      max-file: "5"
+
+x-logging-defaults: &logging-defaults
+  logging:
+    driver: json-file
+    options:
+      max-size: "50m"
+      max-file: "5"
+
+services:
+  # ===== TIER 0: ORCHESTRATOR =====
+  orchestrator:
+    ports:
+      - "127.0.0.1:9100:8000"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    <<: *logging-defaults
+
+  # ===== TIER 1: AGENTS =====
+  agent-water-cea:
+    ports:
+      - "127.0.0.1:9101:8000"
+    <<: *agent-defaults
+
+  agent-transport-ameq:
+    ports:
+      - "127.0.0.1:9102:8000"
+    <<: *agent-defaults
+
+  agent-education-usebeq:
+    ports:
+      - "127.0.0.1:9103:8000"
+    <<: *agent-defaults
+
+  agent-vehicles:
+    ports:
+      - "127.0.0.1:9104:8000"
+    <<: *agent-defaults
+
+  agent-psychology-sejuve:
+    ports:
+      - "127.0.0.1:9105:8000"
+    <<: *agent-defaults
+
+  agent-women-iqm:
+    ports:
+      - "127.0.0.1:9106:8000"
+    <<: *agent-defaults
+
+  agent-culture:
+    ports:
+      - "127.0.0.1:9107:8000"
+    <<: *agent-defaults
+
+  agent-registry-rpp:
+    ports:
+      - "127.0.0.1:9108:8000"
+    <<: *agent-defaults
+
+  agent-labor-cclq:
+    ports:
+      - "127.0.0.1:9109:8000"
+    <<: *agent-defaults
+
+  agent-housing-iveq:
+    ports:
+      - "127.0.0.1:9110:8000"
+    <<: *agent-defaults
+
+  agent-appqro:
+    ports:
+      - "127.0.0.1:9111:8000"
+    <<: *agent-defaults
+
+  agent-social-sedesoq:
+    ports:
+      - "127.0.0.1:9112:8000"
+    <<: *agent-defaults
+
+  agent-citizen-attention:
+    ports:
+      - "127.0.0.1:9113:8000"
+    <<: *agent-defaults
+
+  # ===== VOICE GATEWAY =====
+  voice-gateway:
+    ports:
+      - "127.0.0.1:9190:8000"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    <<: *logging-defaults
+
+  # ===== OBSERVABILITY =====
+  jaeger:
+    ports:
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    <<: *logging-defaults
+
+  # ===== SHARED SERVICES =====
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    <<: *logging-defaults
+
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c effective_cache_size=768MB
+      -c work_mem=8MB
+      -c maintenance_work_mem=128MB
+      -c max_connections=200
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c log_min_duration_statement=1000
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    <<: *logging-defaults

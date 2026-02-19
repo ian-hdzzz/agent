@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CCLQ Labor API Schemas",
+  "description": "Request/response schemas for labor dispute services",
+  "definitions": {
+    "create_case_input": {
+      "type": "object",
+      "required": ["curp", "description", "employer"],
+      "properties": {
+        "curp": { "type": "string" },
+        "description": { "type": "string" },
+        "employer": { "type": "string" }
+      }
+    },
+    "create_case_output": {
+      "type": "object",
+      "properties": {
+        "case_id": { "type": "string" },
+        "folio": { "type": "string" },
+        "status": { "type": "string", "enum": ["received", "in_review", "scheduled", "resolved"] },
+        "next_step": { "type": "string" }
+      }
+    },
+    "get_case_status_input": {
+      "type": "object",
+      "required": ["case_id"],
+      "properties": {
+        "case_id": { "type": "string" }
+      }
+    },
+    "get_case_status_output": {
+      "type": "object",
+      "properties": {
+        "case_id": { "type": "string" },
+        "status": { "type": "string" },
+        "last_update": { "type": "string", "format": "date-time" },
+        "assigned_conciliator": { "type": "string" },
+        "next_hearing_date": { "type": "string", "format": "date" }
+      }
+    },
+    "create_appointment_input": {
+      "type": "object",
+      "required": ["case_id", "date", "time"],
+      "properties": {
+        "case_id": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "time": { "type": "string" }
+      }
+    },
+    "create_appointment_output": {
+      "type": "object",
+      "properties": {
+        "appointment_id": { "type": "string" },
+        "confirmation_code": { "type": "string" }
+      }
+    }
+  }
+}

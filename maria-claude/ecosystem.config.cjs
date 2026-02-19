@@ -11,7 +11,10 @@ module.exports = {
       NODE_ENV: 'production',
       PORT: 3002,
       CHATWOOT_BASE_URL: 'https://agora.humansoftware.mx',
-      CHATWOOT_API_TOKEN: '1r298nK4hAqkwa56dZQpZNGp'
+      CHATWOOT_API_TOKEN: process.env.CHATWOOT_API_TOKEN,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+      SERVER_BASE_URL: 'https://info-cea.cea-info.workers.dev',
+      RECIBO_TOKEN_SECRET: process.env.RECIBO_TOKEN_SECRET
     },
     error_file: '/home/fcamacholombardo/logs/maria-claude-error.log',
     out_file: '/home/fcamacholombardo/logs/maria-claude-out.log',

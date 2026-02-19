@@ -1,0 +1,61 @@
+TRÁMITE: Licencia de Construcción Municipal
+DEPENDENCIA: Secretaría de Desarrollo Urbano y Obras Públicas - Municipio de Querétaro
+FUNDAMENTO LEGAL: Código Urbano del Estado de Querétaro, Reglamento de Construcción Municipal
+
+DESCRIPCIÓN DEL PROCESO ACTUAL:
+
+El ciudadano que desea construir, ampliar o remodelar un inmueble debe obtener una licencia de construcción. El proceso inicia cuando el ciudadano acude a la ventanilla de la Secretaría de Desarrollo Urbano para solicitar información sobre los requisitos.
+
+REQUISITOS:
+- Solicitud por escrito dirigida al Director de Desarrollo Urbano
+- Copia de identificación oficial (INE) del propietario
+- Copia del predial actualizado (último recibo pagado)
+- Escrituras del inmueble o documento que acredite la propiedad
+- Croquis de localización del predio
+- Planos arquitectónicos firmados por un DRO (Director Responsable de Obra) registrado
+- Memoria de cálculo estructural (para construcciones mayores a 60m2)
+- Constancia de alineamiento y número oficial
+- Dictamen de uso de suelo compatible
+- Constancia de no adeudo de agua (CEA)
+- Fotografías del predio actual (4 fotos)
+- Pago de derechos correspondiente
+
+PROCESO PASO A PASO:
+
+1. El ciudadano acude presencialmente a ventanilla para solicitar información. El empleado le entrega una hoja impresa con los requisitos. Tiempo estimado: 30 minutos de espera + 15 minutos de atención.
+
+2. El ciudadano debe obtener por separado: constancia de alineamiento (otro trámite, 5-10 días), dictamen de uso de suelo (otro trámite, 15-20 días), constancia de no adeudo CEA (otro trámite, 3-5 días). Estos trámites son prerequisitos y deben hacerse en diferentes dependencias.
+
+3. El ciudadano contrata un DRO registrado que elabora los planos arquitectónicos y la memoria de cálculo. El DRO debe estar registrado ante el municipio (registro vigente). Tiempo: 15-30 días dependiendo del proyecto.
+
+4. Una vez que tiene todos los documentos, el ciudadano acude nuevamente a ventanilla y presenta su expediente completo. El empleado de ventanilla revisa que estén todos los documentos (checklist manual en papel). Si falta algún documento, se rechaza y el ciudadano debe regresar otro día. Tiempo de espera: 45-90 minutos. Tiempo de revisión: 20-30 minutos.
+
+5. Si el expediente está completo, se genera un número de folio manual (libreta de folios) y se le entrega al ciudadano un comprobante. El expediente físico se envía al área de revisión técnica.
+
+6. El revisor técnico (arquitecto o ingeniero) revisa los planos contra la normatividad: alturas permitidas, COS, CUS, restricciones de construcción, colindancias. Si hay observaciones, se genera un oficio de observaciones que se notifica al ciudadano por teléfono o cuando el ciudadano acude a preguntar por su trámite. Tiempo de revisión: 5-15 días hábiles.
+
+7. Si hay observaciones, el ciudadano debe recoger el oficio, hacer las correcciones con su DRO, y volver a presentar los planos corregidos. Este ciclo puede repetirse 2-3 veces. Cada iteración toma 5-10 días adicionales.
+
+8. Una vez aprobados los planos, el expediente pasa al área jurídica para verificar que las escrituras y documentos legales estén en orden. Tiempo: 3-5 días.
+
+9. Aprobado por jurídico, se genera la orden de pago. El ciudadano debe acudir a la caja de la tesorería municipal (otro edificio) para realizar el pago. El monto se calcula según metros cuadrados y tipo de construcción. Tiempo: 1 día (incluye traslado y espera).
+
+10. Con el comprobante de pago, el ciudadano regresa a la ventanilla de Desarrollo Urbano para que se integre al expediente.
+
+11. El Director de Desarrollo Urbano firma la licencia de construcción. Tiempo: 3-7 días (depende de agenda del Director).
+
+12. Se notifica al ciudadano (llamada telefónica) que su licencia está lista. El ciudadano acude a recogerla presencialmente.
+
+TIEMPO TOTAL ESTIMADO: 45 a 90 días hábiles (sin contar los trámites previos de alineamiento, uso de suelo y CEA que pueden sumar 20-30 días adicionales).
+
+COSTO PARA EL CIUDADANO: Variable según m2, entre $3,000 y $50,000 MXN en derechos, más honorarios del DRO (variable).
+
+PROBLEMAS CONOCIDOS:
+- El ciudadano debe acudir presencialmente mínimo 4-6 veces
+- No hay sistema de seguimiento en línea - el ciudadano llama o va a preguntar
+- Los trámites previos son en diferentes dependencias sin coordinación
+- El ciclo de observaciones es el mayor cuello de botella
+- La firma del Director es punto único de fallo (vacaciones, viajes, carga de trabajo)
+- No existe expediente digital - todo es papel
+- Pérdida ocasional de expedientes físicos
+- No hay criterios estandarizados entre revisores técnicos

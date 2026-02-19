@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SEDESOQ Social Programs API Schemas",
+  "description": "Request/response schemas for social program services",
+  "definitions": {
+    "get_card_balance_input": {
+      "type": "object",
+      "required": ["card_id"],
+      "properties": {
+        "card_id": { "type": "string", "description": "Tarjeta Contigo card ID" }
+      }
+    },
+    "get_card_balance_output": {
+      "type": "object",
+      "properties": {
+        "card_id": { "type": "string" },
+        "balance": { "type": "number" },
+        "currency": { "type": "string", "default": "MXN" },
+        "last_deposit_date": { "type": "string", "format": "date" },
+        "next_deposit_date": { "type": "string", "format": "date" },
+        "program": { "type": "string" }
+      }
+    },
+    "get_beneficiary_status_input": {
+      "type": "object",
+      "required": ["curp"],
+      "properties": {
+        "curp": { "type": "string" }
+      }
+    },
+    "get_beneficiary_status_output": {
+      "type": "object",
+      "properties": {
+        "curp": { "type": "string" },
+        "name": { "type": "string" },
+        "active_programs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "program_id": { "type": "string" },
+              "name": { "type": "string" },
+              "status": { "type": "string", "enum": ["active", "suspended", "completed"] },
+              "start_date": { "type": "string", "format": "date" }
+            }
+          }
+        }
+      }
+    },
+    "check_eligibility_input": {
+      "type": "object",
+      "required": ["curp"],
+      "properties": {
+        "curp": { "type": "string" }
+      }
+    },
+    "check_eligibility_output": {
+      "type": "object",
+      "properties": {
+        "eligible_programs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "program_id": { "type": "string" },
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "requirements": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

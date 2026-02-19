@@ -31,7 +31,7 @@ const PROXY_URL = process.env.CEA_PROXY_URL || null; // e.g., "http://10.128.0.7
 
 // PostgreSQL configuration for AGORA (Chatwoot)
 const PG_CONFIG = {
-    host: process.env.PGHOST || 'whisper-api_agora_postgres',
+    host: process.env.PGHOST || 'localhost',
     port: parseInt(process.env.PGPORT || '5432'),
     user: process.env.PGUSER || 'postgres',
     password: process.env.PGPASSWORD || '',

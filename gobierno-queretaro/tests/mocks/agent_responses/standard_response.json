@@ -1,0 +1,9 @@
+{
+    "response": "He consultado tu saldo. Tu contrato 123456 tiene un adeudo total de $3,450.50",
+    "agent_id": "water-cea",
+    "conversation_id": "conv-test-001",
+    "task_type": "consulta_saldo",
+    "tools_used": ["get_water_balance"],
+    "ticket_folio": null,
+    "error": null
+}

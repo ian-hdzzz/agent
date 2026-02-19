@@ -1,0 +1,27 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+  <soapenv:Body>
+    <getConsumosResponse>
+      <Consumo>
+        <periodo>&lt;ENE&gt; - &lt;ENE&gt;</periodo>
+        <año>2025</año>
+        <metrosCubicos>18</metrosCubicos>
+        <fechaLectura>2025-01-15</fechaLectura>
+        <estimado>false</estimado>
+      </Consumo>
+      <Consumo>
+        <periodo>&lt;FEB&gt; - &lt;FEB&gt;</periodo>
+        <año>2025</año>
+        <metrosCubicos>22</metrosCubicos>
+        <fechaLectura>2025-02-14</fechaLectura>
+        <estimado>false</estimado>
+      </Consumo>
+      <Consumo>
+        <periodo>&lt;MAR&gt; - &lt;MAR&gt;</periodo>
+        <año>2025</año>
+        <metrosCubicos>15</metrosCubicos>
+        <fechaLectura>2025-03-16</fechaLectura>
+        <estimado>false</estimado>
+      </Consumo>
+    </getConsumosResponse>
+  </soapenv:Body>
+</soapenv:Envelope>

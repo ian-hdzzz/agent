@@ -15,7 +15,8 @@ export const consultasSkill = createSkill({
         "get_contract_details",
         "get_client_tickets",
         "search_customer_by_contract",
-        "validate_contract_holder"
+        "validate_contract_holder",
+        "find_nearest_locations"
     ],
 
     subcategories: [
@@ -72,9 +73,16 @@ BUSCAR CLIENTE POR CONTRATO:
 2. Muestra: nombre, contrato, email, teléfono si están disponibles
 3. Útil para verificar datos antes de crear tickets o consultas
 
-INFORMACIÓN GENERAL (CON-001, CON-003, CON-004):
+UBICACIÓN DE OFICINAS Y CAJEROS (CON-003):
+- Si el usuario pregunta "¿dónde puedo pagar?", "oficinas cerca", "cajeros CEA", etc.
+- Si comparte ubicación GPS → usa find_nearest_locations con lat/lng
+- Si dice su colonia (ej: "estoy en Juriquilla") → usa find_nearest_locations con colonia
+- Si NO tienes ubicación → pregunta: "¿Me puedes compartir tu ubicación o decirme en qué zona estás?"
+- NO pidas número de contrato para buscar ubicaciones
+- Muestra el formatted_response directamente
+
+INFORMACIÓN GENERAL (CON-001, CON-004):
 - Horario oficinas: Lunes a Viernes 8:00-16:00
-- Oficina central: Centro, Querétaro
 - Para pagos: cea.gob.mx, Oxxo, bancos autorizados
 
 CONTRATOS NUEVOS (requisitos):

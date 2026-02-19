@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CEA Water API Schemas",
+  "description": "Request/response schemas for CEA Queretaro SOAP operations",
+  "definitions": {
+    "get_debt_input": {
+      "type": "object",
+      "required": ["contrato"],
+      "properties": {
+        "contrato": {
+          "type": "string",
+          "description": "CEA contract number",
+          "pattern": "^[0-9]{4,10}$"
+        }
+      }
+    },
+    "get_debt_output": {
+      "type": "object",
+      "properties": {
+        "deudaTotal": { "type": "number", "description": "Total debt amount" },
+        "importeVencido": { "type": "number", "description": "Overdue amount" },
+        "importePorVencer": { "type": "number", "description": "Amount due soon" },
+        "saldoAnteriorTotal": { "type": "number" }
+      }
+    },
+    "get_consumption_input": {
+      "type": "object",
+      "required": ["contrato"],
+      "properties": {
+        "contrato": { "type": "string", "pattern": "^[0-9]{4,10}$" },
+        "explotacion": { "type": "string", "default": "1" }
+      }
+    },
+    "get_consumption_output": {
+      "type": "object",
+      "properties": {
+        "consumos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "periodo": { "type": "string" },
+              "año": { "type": "integer" },
+              "metrosCubicos": { "type": "number" },
+              "fechaLectura": { "type": "string" },
+              "estimado": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "get_contract_details_input": {
+      "type": "object",
+      "required": ["contrato"],
+      "properties": {
+        "contrato": { "type": "string", "pattern": "^[0-9]{4,10}$" }
+      }
+    },
+    "get_contract_details_output": {
+      "type": "object",
+      "properties": {
+        "nombreTitular": { "type": "string" },
+        "calle": { "type": "string" },
+        "numero": { "type": "string" },
+        "colonia": { "type": "string" },
+        "municipio": { "type": "string" },
+        "descUso": { "type": "string" },
+        "estado": { "type": "string" }
+      }
+    },
+    "get_invoices_input": {
+      "type": "object",
+      "required": ["contrato"],
+      "properties": {
+        "contrato": { "type": "string" },
+        "explotacion": { "type": "string", "default": "1" }
+      }
+    },
+    "get_invoices_output": {
+      "type": "object",
+      "properties": {
+        "facturas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "periodo": { "type": "string" },
+              "año": { "type": "string" },
+              "importeTotal": { "type": "number" },
+              "estado": { "type": "integer", "enum": [1, 2, 3, 4] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

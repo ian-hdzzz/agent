@@ -86,7 +86,8 @@ export const CATEGORY_EMOJIS: Record<CategoryCode, string> = {
     CTR: "📋",
     CVN: "💳",
     REP: "🔧",
-    SRV: "⚙️"
+    SRV: "⚙️",
+    CNS: "💧"
 };
 
 // Additional emojis for ticket types

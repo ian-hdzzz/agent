@@ -6,7 +6,7 @@ LangGraph-based agent for vehicle registration services
 import logging
 import operator
 import re
-from typing import Annotated, Any, Literal, TypedDict
+from typing import Annotated, Any, AsyncGenerator, Literal, TypedDict
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
@@ -379,6 +379,34 @@ class VehiclesAgent:
                 "error": str(e),
                 "agent_id": self.config["id"],
             }
+
+    async def run_streaming(
+        self,
+        message: str,
+        conversation_history: list[BaseMessage] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[tuple[str, dict[str, Any]], None]:
+        """
+        Stream agent execution, yielding (node_name, node_output) tuples.
+        Uses LangGraph's astream() to capture each node transition.
+        """
+        messages = list(conversation_history or [])
+        messages.append(HumanMessage(content=message))
+
+        metadata = metadata or {}
+
+        initial_state: VehiclesAgentState = {
+            "messages": messages,
+            "task_type": None,
+            "subtask_results": {},
+            "current_subtask": None,
+            "user_data": metadata.get("user_data", {}) if metadata else {},
+            "metadata": metadata,
+        }
+
+        async for chunk in self.app.astream(initial_state):
+            node_name = list(chunk.keys())[0]
+            yield (node_name, chunk[node_name])
 
     def get_health(self) -> dict[str, Any]:
         """Get agent health status"""

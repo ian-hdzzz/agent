@@ -1,0 +1,13 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+  <soapenv:Body>
+    <consultaDetalleContratoResponse>
+      <nombreTitular>Juan Garcia Lopez</nombreTitular>
+      <calle>Av. Constituyentes</calle>
+      <numero>123</numero>
+      <colonia>Centro</colonia>
+      <municipio>Queretaro</municipio>
+      <descUso>Domestico</descUso>
+      <estado>activo</estado>
+    </consultaDetalleContratoResponse>
+  </soapenv:Body>
+</soapenv:Envelope>

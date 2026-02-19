@@ -12,7 +12,15 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langgraph.graph import END, StateGraph
 from tenacity import RetryError
 
-from .classifier import CategoryCode, classify_intent, extract_contract_number, get_category_description
+from agentlightning import emit_annotation, emit_message, emit_reward, operation
+
+from .classifier import (
+    CategoryCode,
+    classify_intent,
+    extract_contract_number,
+    get_category_description,
+    is_ambiguous_message,
+)
 from .config import get_agent_registry, get_settings
 from shared.utils.http_client import (
     ResilientHTTPClient,
@@ -21,6 +29,7 @@ from shared.utils.http_client import (
     get_circuit_breaker,
 )
 from shared.security.audit import AuditEventType, get_audit_logger
+from shared.tracing.auto_rewards import get_reward_evaluator
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -68,8 +77,14 @@ async def classify_intent_node(state: OrchestratorState) -> dict[str, Any]:
 
     This node analyzes the latest user message and determines
     which specialist agent should handle the request.
+
+    Context-aware routing: If the message is ambiguous (short/vague) and
+    we have a recent agent context from the session, continue with that
+    agent instead of re-classifying.
     """
     messages = state.get("messages", [])
+    metadata = state.get("metadata", {})
+
     if not messages:
         return {"detected_category": "ATC", "error": "No message provided"}
 
@@ -83,29 +98,67 @@ async def classify_intent_node(state: OrchestratorState) -> dict[str, Any]:
     if not last_message:
         return {"detected_category": "ATC", "error": "No user message found"}
 
-    # Build context from conversation history
-    context_messages = []
-    for msg in messages[-6:]:  # Last 6 messages for context
-        role = "Usuario" if isinstance(msg, HumanMessage) else "Asistente"
-        context_messages.append(f"{role}: {msg.content}")
-    context = "\n".join(context_messages)
+    with operation(name="orchestrator.classify"):
+        # Emit the incoming message for tracing
+        try:
+            emit_message(last_message, attributes={"message.role": "user"})
+        except Exception:
+            pass  # Tracing failures must never break the main flow
 
-    # Classify intent
-    result = await classify_intent(last_message, context)
+        # Check for context continuity - if message is ambiguous and we have
+        # a recent agent context, stay with that agent
+        last_category = metadata.get("last_category")
 
-    # Extract contract number
-    contract_number = extract_contract_number(last_message)
+        if last_category and is_ambiguous_message(last_message):
+            logger.info(
+                f"Ambiguous message '{last_message}', continuing with {last_category}"
+            )
+            try:
+                emit_annotation({
+                    "classification.category": last_category,
+                    "classification.method": "context_continuity",
+                    "classification.ambiguous": True,
+                })
+            except Exception:
+                pass
+            return {
+                "detected_category": last_category,
+                "contract_number": state.get("contract_number"),
+            }
 
-    logger.info(
-        f"Classified: category={result['category']}, "
-        f"confidence={result.get('confidence', 0):.2f}, "
-        f"method={result.get('method', 'unknown')}"
-    )
+        # Build context from conversation history
+        context_messages = []
+        for msg in messages[-6:]:  # Last 6 messages for context
+            role = "Usuario" if isinstance(msg, HumanMessage) else "Asistente"
+            context_messages.append(f"{role}: {msg.content}")
+        context = "\n".join(context_messages)
 
-    return {
-        "detected_category": result["category"],
-        "contract_number": contract_number or state.get("contract_number"),
-    }
+        # Classify intent
+        result = await classify_intent(last_message, context)
+
+        # Extract contract number
+        contract_number = extract_contract_number(last_message)
+
+        # Emit classification result as annotation for tracing
+        try:
+            emit_annotation({
+                "classification.category": result["category"],
+                "classification.confidence": str(result.get("confidence", 0)),
+                "classification.method": result.get("method", "unknown"),
+            })
+        except Exception:
+            pass
+
+        logger.info(
+            f"Classified: category={result['category']}, "
+            f"confidence={result.get('confidence', 0):.2f}, "
+            f"method={result.get('method', 'unknown')}"
+        )
+
+        return {
+            "detected_category": result["category"],
+            "contract_number": contract_number or state.get("contract_number"),
+        }
 
 
 def route_to_agent(state: OrchestratorState) -> str:
@@ -140,6 +193,17 @@ async def call_fallback_agent(
     Returns:
         Agent response dict
     """
+    # Emit auto-reward for fallback event
+    try:
+        reward_eval = get_reward_evaluator()
+        reward_eval.evaluate_routing_event(
+            "fallback_triggered",
+            conversation_id=state.get("metadata", {}).get("conversation_id"),
+            metadata={"original_agent": original_agent_id, "reason": fallback_reason},
+        )
+    except Exception:
+        pass
+
     registry = get_agent_registry()
     fallback_info = registry[FALLBACK_AGENT_CATEGORY]
     fallback_url = fallback_info["url"]
@@ -483,28 +547,61 @@ class Orchestrator:
             "error": None,
         }
 
-        try:
-            result = await self.app.ainvoke(initial_state)
+        conversation_id = (metadata or {}).get("conversation_id")
 
-            return {
-                "response": result.get("agent_response", ""),
-                "category": result.get("detected_category"),
-                "category_description": get_category_description(
-                    result.get("detected_category", "ATC")
-                ),
-                "agent_id": result.get("agent_id"),
-                "contract_number": result.get("contract_number"),
-                "task_type": result.get("task_type"),
-                "error": result.get("error"),
-            }
+        with operation(name="orchestrator.route"):
+            try:
+                # Emit incoming user message
+                try:
+                    emit_message(message, attributes={"message.role": "user"})
+                except Exception:
+                    pass
 
-        except Exception as e:
-            logger.error(f"Orchestrator error: {e}")
-            return {
-                "response": "Lo siento, tuve un problema procesando tu solicitud.",
-                "category": "ATC",
-                "error": str(e),
-            }
+                # Evaluate citizen message for auto-rewards
+                try:
+                    reward_eval = get_reward_evaluator()
+                    reward_eval.evaluate_citizen_message(
+                        message, conversation_id=conversation_id
+                    )
+                except Exception:
+                    pass
+
+                result = await self.app.ainvoke(initial_state)
+
+                # Emit agent response
+                agent_response = result.get("agent_response", "")
+                try:
+                    emit_message(
+                        agent_response,
+                        attributes={"message.role": "assistant"},
+                    )
+                    emit_annotation({
+                        "route.category": result.get("detected_category", ""),
+                        "route.agent_id": result.get("agent_id", ""),
+                        "route.task_type": result.get("task_type", ""),
+                    })
+                except Exception:
+                    pass
+
+                return {
+                    "response": agent_response,
+                    "category": result.get("detected_category"),
+                    "category_description": get_category_description(
+                        result.get("detected_category", "ATC")
+                    ),
+                    "agent_id": result.get("agent_id"),
+                    "contract_number": result.get("contract_number"),
+                    "task_type": result.get("task_type"),
+                    "error": result.get("error"),
+                }
+
+            except Exception as e:
+                logger.error(f"Orchestrator error: {e}")
+                return {
+                    "response": "Lo siento, tuve un problema procesando tu solicitud.",
+                    "category": "ATC",
+                    "error": str(e),
+                }
 
     def get_health(self) -> dict[str, Any]:
         """Get orchestrator health status"""
@@ -515,7 +612,11 @@ class Orchestrator:
         agent_status = {}
         for category, info in registry.items():
             agent_id = info["id"]
-            agent_status[agent_id] = circuit_breaker.get_stats(agent_id)
+            agent_status[agent_id] = {
+                **circuit_breaker.get_stats(agent_id),
+                "version": info.get("version", "unknown"),
+                "sla_tier": info.get("sla_tier", "standard"),
+            }
 
         return {
             "status": "healthy",

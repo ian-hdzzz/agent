@@ -1,0 +1,25 @@
+{
+  "transactions": [
+    {
+      "date": "2025-12-15T08:30:00Z",
+      "type": "ride",
+      "amount": -8.50,
+      "route": "Ruta 44 - Centro-Juriquilla",
+      "balance_after": 185.50
+    },
+    {
+      "date": "2025-12-14T17:45:00Z",
+      "type": "ride",
+      "amount": -8.50,
+      "route": "Ruta 19 - Satellite-Centro",
+      "balance_after": 194.00
+    },
+    {
+      "date": "2025-12-13T10:00:00Z",
+      "type": "recharge",
+      "amount": 200.00,
+      "route": null,
+      "balance_after": 202.50
+    }
+  ]
+}

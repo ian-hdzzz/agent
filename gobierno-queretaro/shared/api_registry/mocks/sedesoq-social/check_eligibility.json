@@ -1,0 +1,24 @@
+{
+  "eligible_programs": [
+    {
+      "program_id": "PROG-SOC-001",
+      "name": "Tarjeta Contigo",
+      "description": "Apoyo economico mensual para familias en situacion vulnerable",
+      "requirements": [
+        "Residir en Queretaro",
+        "CURP vigente",
+        "Estudio socioeconomico"
+      ]
+    },
+    {
+      "program_id": "PROG-SOC-003",
+      "name": "Apoyo Alimentario",
+      "description": "Despensas y apoyo alimentario para adultos mayores",
+      "requirements": [
+        "Adulto mayor de 60 anos",
+        "Residir en Queretaro",
+        "CURP vigente"
+      ]
+    }
+  ]
+}

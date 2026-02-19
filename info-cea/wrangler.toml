@@ -1,0 +1,4 @@
+name = "info-cea"
+main = "src/index.js"
+compatibility_date = "2024-12-01"
+account_id = "6f9b6a46aa2d2e12884444a3ad4a9d7b"

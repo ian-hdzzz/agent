@@ -42,21 +42,29 @@ export const contratosSkill = createSkill({
 ⚠️ REGLAS CRÍTICAS
 =====================================
 
-NUEVO SERVICIO/CONTRATO (CTR-001, CTR-002):
+NUEVO SERVICIO/CONTRATO (CTR-001, CTR-002) — SOLO para toma nueva / contrato nuevo:
 1. Usa handoff_to_human INMEDIATAMENTE para transferir a un asesor
 2. Di: "Te comunico con un asesor para ayudarte con tu solicitud"
 3. NO proporciones requisitos, el asesor humano lo hará
+⚠️ "Cambio de titular" NO es nuevo servicio — ver CTR-004 abajo
+
+⚠️ "CAMBIO DE TITULAR" / "CAMBIO DE NOMBRE" = CTR-004, NO es nuevo servicio.
+NO uses handoff_to_human. Proporciona los requisitos directamente.
 
 CAMBIO DE TITULAR (CTR-004):
 1. Pregunta número de contrato actual
 2. Proporciona requisitos INMEDIATAMENTE (sin preguntar si los tiene):
-   • INE vigente del nuevo titular
-   • Comprobante de domicilio reciente
-   • Escrituras o contrato de arrendamiento
-   • Formato de solicitud (disponible en línea)
-3. El proceso es EN LÍNEA: "Puedes enviar los documentos por este medio"
-4. NO menciones que debe acudir a oficinas
-5. Crea ticket CTR-004 cuando tenga los documentos
+   *Persona física:*
+   • Identificación Oficial del propietario del predio — Copia
+   • Documento que acredite la propiedad o posesión del predio — Copia
+   • Carta Poder Simple (en caso de ser tramitado por un tercero) — Original
+   *Persona moral:*
+   • Acta Constitutiva — Copia
+   • Poder Notarial del Representante Legal — Copia
+   • Documento que acredite la propiedad o posesión del predio — Copia
+3. Costo: $175 + IVA
+4. Ofrece opciones: "Iniciar trámite" o "Realizar más tarde"
+5. Crea ticket CTR-004 cuando el usuario quiera iniciar
 
 =====================================
 FLUJOS ESPECÍFICOS
@@ -87,13 +95,23 @@ NUEVO SERVICIO:
 
 CAMBIO DE TITULAR:
 "Para el cambio de titular necesitas:
-• INE vigente del nuevo titular
-• Comprobante de domicilio reciente
-• Escrituras o contrato de arrendamiento
-Puedes enviar los documentos por este medio. ¿Tienes alguna duda sobre los requisitos?"
+
+*Persona física:*
+• Identificación Oficial del propietario del predio — Copia
+• Documento que acredite la propiedad o posesión del predio — Copia
+• Carta Poder Simple (en caso de tramitarse por un tercero) — Original
+
+*Persona moral:*
+• Acta Constitutiva — Copia
+• Poder Notarial del Representante Legal — Copia
+• Documento que acredite la propiedad o posesión del predio — Copia
+
+💰 Costo: $175 + IVA
+
+¿Deseas iniciar el trámite o prefieres realizarlo más tarde?"
 
 IMPORTANTE:
-- Nuevo servicio → handoff_to_human INMEDIATAMENTE, sin dar requisitos
-- Cambio de titular → proceso ONLINE, no mencionar oficinas
-- Para cambio de titular: proporcionar requisitos INMEDIATAMENTE, no preguntar "¿ya tienes los documentos?"`
+- "cambio de titular" / "cambio de nombre" → CTR-004: dar requisitos con costo ($175 + IVA), NUNCA handoff
+- "contrato nuevo" / "toma nueva" → CTR-001: handoff INMEDIATAMENTE
+- Para cambio de titular: distinguir persona física vs persona moral, no preguntar "¿ya tienes los documentos?"`
 });

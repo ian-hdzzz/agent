@@ -1,0 +1,34 @@
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+        <getConsumosResponse>
+            <Consumo>
+                <año>2025</año>
+                <metrosCubicos>18.5</metrosCubicos>
+                <periodo>&lt;JUN&gt; - &lt;JUN&gt;</periodo>
+                <fechaLectura>2025-06-15</fechaLectura>
+                <estimado>false</estimado>
+            </Consumo>
+            <Consumo>
+                <año>2025</año>
+                <metrosCubicos>22.0</metrosCubicos>
+                <periodo>&lt;MAY&gt; - &lt;MAY&gt;</periodo>
+                <fechaLectura>2025-05-15</fechaLectura>
+                <estimado>false</estimado>
+            </Consumo>
+            <Consumo>
+                <año>2025</año>
+                <metrosCubicos>15.0</metrosCubicos>
+                <periodo>&lt;APR&gt; - &lt;APR&gt;</periodo>
+                <fechaLectura>2025-04-15</fechaLectura>
+                <estimado>true</estimado>
+            </Consumo>
+            <Consumo>
+                <año>2024</año>
+                <metrosCubicos>20.0</metrosCubicos>
+                <periodo>&lt;DEC&gt; - &lt;DEC&gt;</periodo>
+                <fechaLectura>2024-12-15</fechaLectura>
+                <estimado>false</estimado>
+            </Consumo>
+        </getConsumosResponse>
+    </soap:Body>
+</soap:Envelope>

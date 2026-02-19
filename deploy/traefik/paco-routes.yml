@@ -1,0 +1,67 @@
+# ============================================
+# Traefik Dynamic Config - PACO Routes
+# Drop this file in Traefik's dynamic config dir
+# ============================================
+#
+# Replace YOUR-DOMAIN with your actual domain.
+# Traefik handles Let's Encrypt automatically.
+#
+# Services bind to 127.0.0.1 in production.
+# Traefik reaches them via the Docker bridge gateway.
+
+http:
+  routers:
+    # PACO Frontend (Next.js UI)
+    paco-frontend:
+      rule: "Host(`paco.YOUR-DOMAIN`)"
+      service: paco-frontend
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # PACO Backend API
+    paco-api:
+      rule: "Host(`api.YOUR-DOMAIN`)"
+      service: paco-api
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Langfuse (Observability UI)
+    paco-langfuse:
+      rule: "Host(`langfuse.YOUR-DOMAIN`)"
+      service: paco-langfuse
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    paco-frontend:
+      loadBalancer:
+        servers:
+          - url: "http://172.17.0.1:3006"
+        healthCheck:
+          path: /
+          interval: 30s
+          timeout: 5s
+
+    paco-api:
+      loadBalancer:
+        servers:
+          - url: "http://172.17.0.1:8000"
+        healthCheck:
+          path: /health
+          interval: 30s
+          timeout: 5s
+
+    paco-langfuse:
+      loadBalancer:
+        servers:
+          - url: "http://172.17.0.1:3001"
+        healthCheck:
+          path: /
+          interval: 30s
+          timeout: 5s

@@ -1,0 +1,289 @@
+# Gobierno Queretaro - Centralized API Registry
+# All government service API definitions for the PACO platform.
+#
+# status values:
+#   active   - Live integration, real API calls
+#   planned  - API contract defined, integration pending
+#   mocked   - Using mock data / fixtures
+
+apis:
+
+  # -----------------------------------------------
+  # 1. CEA - Comision Estatal de Aguas (Water)
+  # -----------------------------------------------
+  cea-water:
+    name: "CEA Queretaro - Servicios de Agua"
+    description: "Water billing, consumption, contract, and invoice services"
+    base_url: "${CEA_API_BASE:https://aquacis-cf.ceaqueretaro.gob.mx/Comercial/services}"
+    protocol: SOAP
+    auth_type: ws-security
+    auth_config:
+      username_env: "CEA_WS_USERNAME"
+      password_env: "CEA_WS_PASSWORD"
+      token_id_prefix: "UsernameToken-WSGESTIONDEUDA"
+    timeout_ms: 30000
+    rate_limit:
+      requests_per_minute: 60
+      burst: 10
+    status: active
+    operations:
+      - id: get_debt
+        endpoint: "InterfazGenericaGestionDeudaWS"
+        soap_action: "getDeuda"
+        description: "Query account debt/balance"
+        input_params: [contrato]
+      - id: get_consumption
+        endpoint: "InterfazOficinaVirtualClientesWS"
+        soap_action: "getConsumos"
+        description: "Query water consumption history"
+        input_params: [contrato, explotacion]
+      - id: get_contract_details
+        endpoint: "InterfazGenericaContratacionWS"
+        soap_action: "consultaDetalleContrato"
+        description: "Query contract details (holder, address, tariff)"
+        input_params: [contrato]
+      - id: get_invoices
+        endpoint: "InterfazOficinaVirtualClientesWS"
+        soap_action: "getFacturas"
+        description: "Query unpaid invoices"
+        input_params: [contrato, explotacion]
+
+  # -----------------------------------------------
+  # 2. AMEQ / IQT - Transport (QROBUS)
+  # -----------------------------------------------
+  ameq-transport:
+    name: "AMEQ / IQT - Transporte Publico"
+    description: "QROBUS card balance, transactions, and route information"
+    base_url: "${AMEQ_API_BASE:https://api.qrobus.gob.mx/v1}"
+    protocol: REST
+    auth_type: api-key
+    auth_config:
+      header_name: "X-API-Key"
+      key_env: "AMEQ_API_KEY"
+    timeout_ms: 15000
+    rate_limit:
+      requests_per_minute: 120
+      burst: 20
+    status: mocked
+    operations:
+      - id: get_card_balance
+        method: GET
+        path: "/cards/{card_number}/balance"
+        description: "Query QROBUS card balance"
+        input_params: [card_number]
+      - id: get_card_history
+        method: GET
+        path: "/cards/{card_number}/history"
+        description: "Query card transaction history"
+        input_params: [card_number]
+      - id: search_routes
+        method: GET
+        path: "/routes/search"
+        description: "Search bus routes between locations"
+        input_params: [from_location, to_location]
+      - id: get_route_map
+        method: GET
+        path: "/routes/{route_id}/map"
+        description: "Get route map/details"
+        input_params: [route_id]
+
+  # -----------------------------------------------
+  # 3. USEBEQ - Education (SAID)
+  # -----------------------------------------------
+  usebeq-education:
+    name: "USEBEQ - Educacion (SAID)"
+    description: "School enrollment, assignment, and preinscription services"
+    base_url: "${USEBEQ_API_BASE:https://said.usebeq.edu.mx/api/v1}"
+    protocol: REST
+    auth_type: bearer
+    auth_config:
+      token_env: "USEBEQ_BEARER_TOKEN"
+    timeout_ms: 15000
+    rate_limit:
+      requests_per_minute: 60
+      burst: 10
+    status: mocked
+    operations:
+      - id: get_enrollment_status
+        method: GET
+        path: "/enrollment/{curp}/status"
+        description: "Check student enrollment status by CURP"
+        input_params: [curp]
+      - id: get_assignment
+        method: GET
+        path: "/enrollment/{curp}/assignment"
+        description: "Get school assignment for student"
+        input_params: [curp]
+      - id: get_school_info
+        method: GET
+        path: "/schools/{school_id}/info"
+        description: "Get school information"
+        input_params: [school_id]
+
+  # -----------------------------------------------
+  # 4. Finanzas - Vehicles (Portal Tributario)
+  # -----------------------------------------------
+  finanzas-vehicles:
+    name: "Secretaria de Finanzas - Vehiculos"
+    description: "Vehicle tax (tenencia), payment, and registration services"
+    base_url: "${FINANZAS_API_BASE:https://portalrecaudacion.queretaro.gob.mx/api/v1}"
+    protocol: REST
+    auth_type: api-key
+    auth_config:
+      header_name: "X-API-Key"
+      key_env: "FINANZAS_API_KEY"
+    timeout_ms: 20000
+    rate_limit:
+      requests_per_minute: 60
+      burst: 10
+    status: mocked
+    operations:
+      - id: get_vehicle_debt
+        method: GET
+        path: "/vehicles/{plate}/debt"
+        description: "Look up vehicle tenencia debt"
+        input_params: [plate]
+      - id: create_payment
+        method: POST
+        path: "/vehicles/{plate}/payment"
+        description: "Generate payment reference"
+        input_params: [plate]
+      - id: get_receipt
+        method: GET
+        path: "/vehicles/{plate}/receipt"
+        description: "Download payment receipt"
+        input_params: [plate]
+
+  # -----------------------------------------------
+  # 5. RPP - Property Registry (CERLIN / SIRE)
+  # -----------------------------------------------
+  rpp-registry:
+    name: "RPP - Registro Publico de la Propiedad"
+    description: "Property lookup, certificate requests, and alert registration"
+    base_url: "${RPP_API_BASE:https://rpp.queretaro.gob.mx/api/v1}"
+    protocol: REST
+    auth_type: bearer
+    auth_config:
+      token_env: "RPP_BEARER_TOKEN"
+    timeout_ms: 20000
+    rate_limit:
+      requests_per_minute: 30
+      burst: 5
+    status: mocked
+    operations:
+      - id: search_properties
+        method: GET
+        path: "/properties/search"
+        description: "Search properties by folio, catastral ID, or location"
+        input_params: [query]
+      - id: get_certificate_status
+        method: GET
+        path: "/certificates/{certificate_id}/status"
+        description: "Check certificate request status"
+        input_params: [certificate_id]
+      - id: register_alert
+        method: POST
+        path: "/alerts/register"
+        description: "Register property alert"
+        input_params: [property_id, alert_type]
+
+  # -----------------------------------------------
+  # 6. IVEQ - Housing
+  # -----------------------------------------------
+  iveq-housing:
+    name: "IVEQ - Instituto de la Vivienda"
+    description: "Housing programs, debt certificates, and appointments"
+    base_url: "${IVEQ_API_BASE:https://iveq.queretaro.gob.mx/api/v1}"
+    protocol: REST
+    auth_type: api-key
+    auth_config:
+      header_name: "X-API-Key"
+      key_env: "IVEQ_API_KEY"
+    timeout_ms: 15000
+    rate_limit:
+      requests_per_minute: 60
+      burst: 10
+    status: mocked
+    operations:
+      - id: get_debt_status
+        method: GET
+        path: "/properties/{property_id}/debt-status"
+        description: "Get no-debt certificate status"
+        input_params: [property_id]
+      - id: create_appointment
+        method: POST
+        path: "/appointments"
+        description: "Schedule an appointment"
+        input_params: [date, time, purpose]
+      - id: check_eligibility
+        method: GET
+        path: "/programs/eligibility"
+        description: "Check housing program eligibility"
+        input_params: [curp]
+
+  # -----------------------------------------------
+  # 7. CCLQ - Labor (CENCOLAB)
+  # -----------------------------------------------
+  cclq-labor:
+    name: "CCLQ - Conciliacion Laboral"
+    description: "Labor dispute case management and appointments"
+    base_url: "${CCLQ_API_BASE:https://cclq.queretaro.gob.mx/api/v1}"
+    protocol: REST
+    auth_type: bearer
+    auth_config:
+      token_env: "CCLQ_BEARER_TOKEN"
+    timeout_ms: 15000
+    rate_limit:
+      requests_per_minute: 30
+      burst: 5
+    status: mocked
+    operations:
+      - id: create_case
+        method: POST
+        path: "/cases"
+        description: "Submit a new labor dispute case"
+        input_params: [curp, description, employer]
+      - id: get_case_status
+        method: GET
+        path: "/cases/{case_id}/status"
+        description: "Check case status"
+        input_params: [case_id]
+      - id: create_appointment
+        method: POST
+        path: "/appointments"
+        description: "Schedule conciliation appointment"
+        input_params: [case_id, date, time]
+
+  # -----------------------------------------------
+  # 8. SEDESOQ - Social Programs (Tarjeta Contigo)
+  # -----------------------------------------------
+  sedesoq-social:
+    name: "SEDESOQ - Programas Sociales"
+    description: "Social program cards, benefits, and eligibility"
+    base_url: "${SEDESOQ_API_BASE:https://sedesoq.queretaro.gob.mx/api/v1}"
+    protocol: REST
+    auth_type: api-key
+    auth_config:
+      header_name: "X-API-Key"
+      key_env: "SEDESOQ_API_KEY"
+    timeout_ms: 15000
+    rate_limit:
+      requests_per_minute: 60
+      burst: 10
+    status: mocked
+    operations:
+      - id: get_card_balance
+        method: GET
+        path: "/cards/{card_id}/balance"
+        description: "Query Tarjeta Contigo balance"
+        input_params: [card_id]
+      - id: get_beneficiary_status
+        method: GET
+        path: "/beneficiaries/{curp}/status"
+        description: "Check beneficiary enrollment status"
+        input_params: [curp]
+      - id: check_eligibility
+        method: GET
+        path: "/programs/eligibility"
+        description: "Check social program eligibility"
+        input_params: [curp]

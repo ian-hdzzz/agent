@@ -1,0 +1,15 @@
+{
+  "eligible": true,
+  "programs": [
+    {
+      "program_id": "PROG-VIV-001",
+      "name": "Mejoramiento de Vivienda",
+      "description": "Apoyo para mejora de vivienda en zonas prioritarias"
+    },
+    {
+      "program_id": "PROG-VIV-003",
+      "name": "Lotes con Servicios",
+      "description": "Acceso a lotes urbanizados con servicios basicos"
+    }
+  ]
+}

@@ -2,6 +2,9 @@
 Gobierno Queretaro - Vehicles Agent FastAPI Server
 """
 
+import asyncio
+import os as _os
+
 import logging
 import re
 import sys
@@ -10,12 +13,17 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from langchain_core.messages import AIMessage, HumanMessage
 
 from .agent import get_agent
 from .config import get_settings
+from .playground import router as playground_router
+from .tools import get_tools
+from shared.a2a.card_builder import build_agent_card
 
 # Configure logging
 logging.basicConfig(
@@ -71,8 +79,29 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting Vehicles Agent: {settings.agent_id}")
     agent = get_agent()
     logger.info(f"Agent initialized: {agent.config['name']}")
+
+    # Company heartbeat loop (per-agent schedule management)
+    company_loop = None
+    if settings.company_mode_enabled and settings.infrastructure_id:
+        try:
+            from shared.heartbeat import AgentHeartbeatLoop
+            company_loop = AgentHeartbeatLoop(
+                agent_slug=settings.agent_id,
+                paco_api_url=settings.paco_api_url,
+                infrastructure_id=settings.infrastructure_id,
+                agent_graph=agent.graph,
+            )
+            await company_loop.start()
+            logger.info(f"Company heartbeat loop started for {settings.agent_id}")
+        except Exception as e:
+            logger.warning(f"Company heartbeat loop failed to start: {e}")
+            company_loop = None
+
     yield
+
     logger.info(f"Shutting down agent: {settings.agent_id}")
+    if company_loop:
+        await company_loop.stop()
 
 
 # ============================================
@@ -93,6 +122,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Playground
+app.include_router(playground_router)
+_static_dir = _os.path.join(_os.path.dirname(__file__), "static")
+if _os.path.isdir(_static_dir):
+    app.mount("/playground/static", StaticFiles(directory=_static_dir), name="playground-static")
 
 
 # ============================================
@@ -158,6 +193,34 @@ async def query_agent(request: QueryRequest):
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
 
 
+class PeerMessageRequest(BaseModel):
+    """Request from a peer agent."""
+    sender: str
+    content: str
+    message_type: str = "direct"
+    subject: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+@app.post("/api/message")
+async def receive_peer_message(request: PeerMessageRequest):
+    """Receive urgent message from a peer agent (bypasses inbox polling)."""
+    try:
+        agent = get_agent()
+        prompt = f"[Message from {request.sender}]: {request.content}"
+        result = await agent.run(
+            message=prompt,
+            metadata={"message_type": "peer", "sender": request.sender},
+        )
+        return {
+            "status": "processed",
+            "response": result.get("response", ""),
+        }
+    except Exception as e:
+        logger.error(f"Peer message error: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing message: {str(e)}")
+
+
 @app.get("/info")
 async def agent_info():
     """Get agent configuration"""
@@ -171,6 +234,28 @@ async def agent_info():
     }
 
 
+_agent_card_cache: dict | None = None
+
+def _get_agent_card_dict() -> dict:
+    global _agent_card_cache
+    if _agent_card_cache is None:
+        tools = get_tools()
+        card = build_agent_card(
+            agent_id=settings.agent_id,
+            agent_name=getattr(settings, "agent_name", settings.agent_id),
+            agent_description=getattr(settings, "agent_description", settings.agent_id),
+            url=f"http://{settings.host}:{settings.port}",
+            tools=tools,
+            version=getattr(settings, "version", "1.0.0"),
+        )
+        _agent_card_cache = card.model_dump(mode="json", exclude_none=True)
+    return _agent_card_cache
+
+@app.get("/.well-known/agent.json")
+async def agent_card():
+    return _get_agent_card_dict()
+
+
 @app.get("/")
 async def root():
     """Root endpoint"""
@@ -178,7 +263,17 @@ async def root():
         "service": "Gobierno Queretaro - Vehicles Agent",
         "agent_id": settings.agent_id,
         "status": "running",
+        "endpoints": {
+            "agent_card": "/.well-known/agent.json",
+            "playground": "/playground/ui",
+        },
     }
+
+
+@app.get("/playground", include_in_schema=False)
+async def playground_redirect():
+    """Convenience redirect to playground UI."""
+    return RedirectResponse(url="/playground/ui")
 
 
 if __name__ == "__main__":

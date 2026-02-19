@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RPP Property Registry API Schemas",
+  "description": "Request/response schemas for property registry services",
+  "definitions": {
+    "search_properties_input": {
+      "type": "object",
+      "required": ["query"],
+      "properties": {
+        "query": { "type": "string", "description": "Search by folio, catastral ID, or address" }
+      }
+    },
+    "search_properties_output": {
+      "type": "object",
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "folio": { "type": "string" },
+              "catastral_id": { "type": "string" },
+              "address": { "type": "string" },
+              "owner_name": { "type": "string" },
+              "area_m2": { "type": "number" },
+              "type": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "get_certificate_status_input": {
+      "type": "object",
+      "required": ["certificate_id"],
+      "properties": {
+        "certificate_id": { "type": "string" }
+      }
+    },
+    "get_certificate_status_output": {
+      "type": "object",
+      "properties": {
+        "certificate_id": { "type": "string" },
+        "status": { "type": "string", "enum": ["processing", "ready", "delivered", "rejected"] },
+        "estimated_date": { "type": "string", "format": "date" },
+        "download_url": { "type": "string" }
+      }
+    },
+    "register_alert_input": {
+      "type": "object",
+      "required": ["property_id", "alert_type"],
+      "properties": {
+        "property_id": { "type": "string" },
+        "alert_type": { "type": "string", "enum": ["ownership_change", "lien", "any"] }
+      }
+    },
+    "register_alert_output": {
+      "type": "object",
+      "properties": {
+        "alert_id": { "type": "string" },
+        "registered": { "type": "boolean" }
+      }
+    }
+  }
+}

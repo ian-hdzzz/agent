@@ -1,0 +1,12 @@
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+        <consultaDetalleContratoResponse>
+            <nombreTitular>Juan Perez Garcia</nombreTitular>
+            <calle>Av. Constituyentes</calle>
+            <numero>456</numero>
+            <municipio>Centro Historico</municipio>
+            <descUso>Domestico</descUso>
+            <estado>activo</estado>
+        </consultaDetalleContratoResponse>
+    </soap:Body>
+</soap:Envelope>

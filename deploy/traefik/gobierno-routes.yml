@@ -1,0 +1,87 @@
+# ============================================
+# Traefik Dynamic Config - Gobierno Queretaro Routes
+# Drop this file in Traefik's dynamic config dir
+# ============================================
+#
+# Replace YOUR-DOMAIN with your actual domain.
+#
+# Jaeger is behind basicAuth middleware.
+# Voice gateway has WebSocket support via transport.respondingTimeouts.
+
+http:
+  routers:
+    # Gobierno Orchestrator API
+    gobierno-orchestrator:
+      rule: "Host(`gobierno.YOUR-DOMAIN`)"
+      service: gobierno-orchestrator
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Voice Gateway (WebSocket)
+    gobierno-voice:
+      rule: "Host(`voz.YOUR-DOMAIN`)"
+      service: gobierno-voice
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Jaeger Tracing UI (protected)
+    gobierno-jaeger:
+      rule: "Host(`jaeger.YOUR-DOMAIN`)"
+      service: gobierno-jaeger
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - jaeger-auth
+        - jaeger-ipallow
+
+  middlewares:
+    # Basic auth for Jaeger UI
+    # Generate: htpasswd -nB admin
+    # Default: admin / changeme (CHANGE THIS!)
+    jaeger-auth:
+      basicAuth:
+        users:
+          - "admin:$2y$05$CHANGEME_GENERATE_WITH_HTPASSWD"
+
+    # IP allowlist for Jaeger (add your office/VPN IPs)
+    jaeger-ipallow:
+      ipAllowList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "10.0.0.0/8"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"
+
+  services:
+    gobierno-orchestrator:
+      loadBalancer:
+        servers:
+          - url: "http://172.17.0.1:9100"
+        healthCheck:
+          path: /health
+          interval: 30s
+          timeout: 5s
+
+    gobierno-voice:
+      loadBalancer:
+        servers:
+          - url: "http://172.17.0.1:9190"
+        healthCheck:
+          path: /health
+          interval: 30s
+          timeout: 5s
+
+    gobierno-jaeger:
+      loadBalancer:
+        servers:
+          - url: "http://172.17.0.1:16686"
+        healthCheck:
+          path: /
+          interval: 30s
+          timeout: 5s

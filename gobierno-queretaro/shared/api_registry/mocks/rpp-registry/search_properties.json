@@ -1,0 +1,12 @@
+{
+  "results": [
+    {
+      "folio": "RPP-2024-001234",
+      "catastral_id": "01-001-0045-0012",
+      "address": "Av. Constituyentes 123, Col. Centro, Queretaro",
+      "owner_name": "Juan Garcia Lopez",
+      "area_m2": 250.0,
+      "type": "residential"
+    }
+  ]
+}

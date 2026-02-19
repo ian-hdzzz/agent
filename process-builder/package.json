@@ -1,0 +1,27 @@
+{
+  "name": "process-builder",
+  "version": "2.0.0",
+  "description": "Government process mapper and optimizer for Mexican digital transformation (Ley de Transformacion Digital)",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "process-builder": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "analyze": "tsx src/index.ts analyze"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "ora": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

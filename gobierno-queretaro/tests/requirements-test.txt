@@ -1,0 +1,25 @@
+# ============================================
+# PACO Test Dependencies
+# ============================================
+
+# Test framework
+pytest>=8.0.0
+pytest-asyncio>=0.24.0
+pytest-cov>=6.0.0
+
+# Mocking
+respx>=0.22.0
+pytest-mock>=3.14.0
+
+# HTTP mocking (for httpx)
+httpx>=0.28.0
+
+# Pydantic (for model assertions)
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+
+# Anthropic SDK (for mock typing)
+anthropic>=0.40.0
+
+# LangChain (for message types in router tests)
+langchain-core>=0.3.0

@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "USEBEQ Education API Schemas",
+  "description": "Request/response schemas for SAID education services",
+  "definitions": {
+    "get_enrollment_status_input": {
+      "type": "object",
+      "required": ["curp"],
+      "properties": {
+        "curp": {
+          "type": "string",
+          "description": "Student CURP",
+          "pattern": "^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z]{2}$"
+        }
+      }
+    },
+    "get_enrollment_status_output": {
+      "type": "object",
+      "properties": {
+        "curp": { "type": "string" },
+        "student_name": { "type": "string" },
+        "enrolled": { "type": "boolean" },
+        "school_name": { "type": "string" },
+        "grade": { "type": "string" },
+        "cycle": { "type": "string" },
+        "status": { "type": "string", "enum": ["enrolled", "pre-registered", "pending", "not_found"] }
+      }
+    },
+    "get_assignment_input": {
+      "type": "object",
+      "required": ["curp"],
+      "properties": {
+        "curp": { "type": "string" }
+      }
+    },
+    "get_assignment_output": {
+      "type": "object",
+      "properties": {
+        "curp": { "type": "string" },
+        "assigned_school": { "type": "string" },
+        "school_id": { "type": "string" },
+        "shift": { "type": "string", "enum": ["morning", "afternoon"] },
+        "start_date": { "type": "string", "format": "date" }
+      }
+    },
+    "get_school_info_input": {
+      "type": "object",
+      "required": ["school_id"],
+      "properties": {
+        "school_id": { "type": "string" }
+      }
+    },
+    "get_school_info_output": {
+      "type": "object",
+      "properties": {
+        "school_id": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "level": { "type": "string", "enum": ["preescolar", "primaria", "secundaria"] },
+        "phone": { "type": "string" },
+        "available_spots": { "type": "integer" }
+      }
+    }
+  }
+}

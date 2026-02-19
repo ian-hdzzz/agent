@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Finanzas Vehicles API Schemas",
+  "description": "Request/response schemas for vehicle tax services",
+  "definitions": {
+    "get_vehicle_debt_input": {
+      "type": "object",
+      "required": ["plate"],
+      "properties": {
+        "plate": {
+          "type": "string",
+          "description": "Vehicle license plate",
+          "pattern": "^[A-Z0-9]{5,8}$"
+        }
+      }
+    },
+    "get_vehicle_debt_output": {
+      "type": "object",
+      "properties": {
+        "plate": { "type": "string" },
+        "owner_name": { "type": "string" },
+        "vehicle_description": { "type": "string" },
+        "year": { "type": "integer" },
+        "total_debt": { "type": "number" },
+        "tenencia_current_year": { "type": "number" },
+        "tenencia_previous_years": { "type": "number" },
+        "fines": { "type": "number" },
+        "due_date": { "type": "string", "format": "date" }
+      }
+    },
+    "create_payment_input": {
+      "type": "object",
+      "required": ["plate"],
+      "properties": {
+        "plate": { "type": "string" },
+        "payment_method": { "type": "string", "enum": ["card", "spei", "oxxo"] }
+      }
+    },
+    "create_payment_output": {
+      "type": "object",
+      "properties": {
+        "reference_number": { "type": "string" },
+        "amount": { "type": "number" },
+        "expiry": { "type": "string", "format": "date-time" },
+        "redirect_url": { "type": "string" }
+      }
+    },
+    "get_receipt_input": {
+      "type": "object",
+      "required": ["plate"],
+      "properties": {
+        "plate": { "type": "string" }
+      }
+    },
+    "get_receipt_output": {
+      "type": "object",
+      "properties": {
+        "receipt_url": { "type": "string", "format": "uri" },
+        "payment_date": { "type": "string", "format": "date" },
+        "amount_paid": { "type": "number" }
+      }
+    }
+  }
+}

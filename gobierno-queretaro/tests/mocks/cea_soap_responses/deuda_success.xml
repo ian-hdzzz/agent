@@ -1,0 +1,12 @@
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+        <getDeudaResponse>
+            <deudaTotal>3450.50</deudaTotal>
+            <saldoAnteriorTotal>1200.00</saldoAnteriorTotal>
+            <deuda>2250.50</deuda>
+            <importeTotal>3450.50</importeTotal>
+            <importeVencido>1200.00</importeVencido>
+            <importePorVencer>2250.50</importePorVencer>
+        </getDeudaResponse>
+    </soap:Body>
+</soap:Envelope>

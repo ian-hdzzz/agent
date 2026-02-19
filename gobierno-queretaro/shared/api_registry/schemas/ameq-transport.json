@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AMEQ Transport API Schemas",
+  "description": "Request/response schemas for QROBUS transport services",
+  "definitions": {
+    "get_card_balance_input": {
+      "type": "object",
+      "required": ["card_number"],
+      "properties": {
+        "card_number": {
+          "type": "string",
+          "description": "QROBUS card number",
+          "pattern": "^[0-9]{10,16}$"
+        }
+      }
+    },
+    "get_card_balance_output": {
+      "type": "object",
+      "properties": {
+        "card_number": { "type": "string" },
+        "balance": { "type": "number" },
+        "currency": { "type": "string", "default": "MXN" },
+        "last_used": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "inactive", "blocked"] }
+      }
+    },
+    "get_card_history_input": {
+      "type": "object",
+      "required": ["card_number"],
+      "properties": {
+        "card_number": { "type": "string" }
+      }
+    },
+    "get_card_history_output": {
+      "type": "object",
+      "properties": {
+        "transactions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string", "format": "date-time" },
+              "type": { "type": "string", "enum": ["ride", "recharge", "transfer"] },
+              "amount": { "type": "number" },
+              "route": { "type": "string" },
+              "balance_after": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "search_routes_input": {
+      "type": "object",
+      "required": ["from_location", "to_location"],
+      "properties": {
+        "from_location": { "type": "string" },
+        "to_location": { "type": "string" }
+      }
+    },
+    "search_routes_output": {
+      "type": "object",
+      "properties": {
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "route_id": { "type": "string" },
+              "name": { "type": "string" },
+              "estimated_time_minutes": { "type": "integer" },
+              "fare": { "type": "number" },
+              "transfers": { "type": "integer" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

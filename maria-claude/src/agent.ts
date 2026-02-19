@@ -255,6 +255,12 @@ export async function runWorkflow(input: WorkflowInput): Promise<WorkflowOutput>
             inputLower.includes("no tengo agua") || inputLower.includes("inundación")) {
             category = "REP";
             keywordMatched = true;
+        } else if (inputLower.includes("oficina") || inputLower.includes("cajero") ||
+                   inputLower.includes("sucursal") || inputLower.includes("donde pago") ||
+                   inputLower.includes("dónde pago") || inputLower.includes("ubicación") ||
+                   inputLower.includes("cerca de mí") || inputLower.includes("horario")) {
+            category = "CON";
+            keywordMatched = true;
         } else if (inputLower.includes("recibo") || inputLower.includes("factura") ||
                    inputLower.includes("aclaración") || inputLower.includes("ajuste") ||
                    inputLower.includes("cobro") || inputLower.includes("pagar") ||

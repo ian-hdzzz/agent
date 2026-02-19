@@ -18,7 +18,8 @@ export const facturacionSkill = createSkill({
         "search_customer_by_contract",
         "get_recibo_pdf",
         "validate_contract_holder",
-        "handoff_to_human"
+        "handoff_to_human",
+        "find_nearest_locations"
     ],
 
     subcategories: [
@@ -51,12 +52,14 @@ ACLARACIONES (FAC-004):
 
 PAGOS:
 - NO pidas número de contrato
-- Solo muestra las opciones de pago:
+- Muestra PRIMERO las opciones de pago en línea:
   • En línea: https://appcea.ceaqueretaro.gob.mx/PagoEnLinea/
-  • Sucursales CEA
   • Oxxo (con tu recibo)
   • Bancos autorizados
   • Domiciliación bancaria
+- Si el usuario pregunta "¿dónde puedo pagar en persona?" o "sucursales cerca de mí":
+  • Ofrece: "Si prefieres pagar en persona, ¿me compartes tu ubicación para encontrar la sucursal más cercana?"
+  • Usa find_nearest_locations con tipo="all" cuando tengas ubicación
 
 REVISAR RECIBO (usuario tiene duda con su recibo):
 - Pregunta número de contrato
