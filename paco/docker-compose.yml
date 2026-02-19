@@ -115,6 +115,7 @@ services:
     depends_on:
       - paco-backend
     environment:
+      BACKEND_URL: "http://paco-backend:8000"
       NEXT_PUBLIC_API_URL: ${PACO_API_URL:-http://localhost:8000}
       NEXT_PUBLIC_LANGFUSE_URL: ${LANGFUSE_URL:-http://localhost:3001}
       NEXTAUTH_URL: ${PACO_URL:-http://localhost:3006}
