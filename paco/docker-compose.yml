@@ -63,8 +63,11 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-paco}:${POSTGRES_PASSWORD:-paco_secret}@postgres:5432/langfuse
+      REDIS_CONNECTION_STRING: redis://redis:6379
       CLICKHOUSE_URL: http://clickhouse:8123
       CLICKHOUSE_USER: langfuse
       CLICKHOUSE_PASSWORD: langfuse_secret
@@ -72,7 +75,7 @@ services:
       NEXTAUTH_URL: ${LANGFUSE_URL:-http://localhost:3001}
       NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-your-nextauth-secret-change-me}
       SALT: ${LANGFUSE_SALT:-your-salt-change-me}
-      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-03f241422af14fd11e52edf9794089cb4a4bdb8f873fc1eb1e3a0ceea92dd0c2}
       TELEMETRY_ENABLED: ${LANGFUSE_TELEMETRY:-false}
       LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "true"
 
