@@ -142,6 +142,52 @@ class ApiClient {
     return this.request<Agent[]>("/api/agents/sync/yaml");
   }
 
+  // Agent tool assignment
+  async assignToolToAgent(agentId: string, toolId: string, isRequired = true) {
+    return this.request<AgentToolAssignment>(`/api/agents/${agentId}/tools`, {
+      method: "POST",
+      body: JSON.stringify({ tool_id: toolId, is_required: isRequired }),
+    });
+  }
+
+  async removeToolFromAgent(agentId: string, toolId: string) {
+    return this.request<void>(`/api/agents/${agentId}/tools/${toolId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async getAgentTools(agentId: string) {
+    return this.request<AgentToolAssignment[]>(`/api/agents/${agentId}/tools`);
+  }
+
+  // Agent skill assignment
+  async attachSkillToAgent(agentId: string, skillCode: string) {
+    return this.request<AgentSkillAssignment>(`/api/agents/${agentId}/skills`, {
+      method: "POST",
+      body: JSON.stringify({ skill_code: skillCode }),
+    });
+  }
+
+  async detachSkillFromAgent(agentId: string, skillCode: string) {
+    return this.request<void>(`/api/agents/${agentId}/skills/${skillCode}`, {
+      method: "DELETE",
+    });
+  }
+
+  async toggleAgentSkill(agentId: string, skillCode: string, isEnabled: boolean) {
+    return this.request<AgentSkillAssignment>(
+      `/api/agents/${agentId}/skills/${skillCode}?is_enabled=${isEnabled}`,
+      { method: "PUT" }
+    );
+  }
+
+  // Agent apply (regen + compile + restart)
+  async applyAgentConfig(agentId: string) {
+    return this.request<ApplyResponse>(`/api/agents/${agentId}/apply`, {
+      method: "POST",
+    });
+  }
+
   // Tool endpoints
   async getMcpServers() {
     return this.request<McpServer[]>("/api/tools/servers");
@@ -1151,11 +1197,45 @@ export interface AgentMcpServer {
   env: Record<string, string>;
 }
 
+export interface AgentToolInfo {
+  id: string;
+  name: string;
+  description: string | null;
+  mcp_server_name: string | null;
+  is_required: boolean;
+}
+
 export interface AgentDetail extends Agent {
   allowed_tools: string[];
   skills: AgentSkillSummary[];
   mcp_servers: AgentMcpServer[];
+  tools: AgentToolInfo[];
   config?: Record<string, any>;
+}
+
+export interface AgentToolAssignment {
+  id: string;
+  tool_id: string;
+  tool_name: string;
+  tool_description: string | null;
+  mcp_server_name: string | null;
+  is_required: boolean;
+  config_overrides: Record<string, any>;
+  created_at: string;
+}
+
+export interface AgentSkillAssignment {
+  id: string;
+  skill_code: string;
+  skill_name: string;
+  is_enabled: boolean;
+  created_at: string;
+}
+
+export interface ApplyResponse {
+  success: boolean;
+  message: string;
+  files_generated: string[];
 }
 
 export interface AgentStatus {

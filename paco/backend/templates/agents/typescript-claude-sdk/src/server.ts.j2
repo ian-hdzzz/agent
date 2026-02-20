@@ -5,6 +5,7 @@
 
 import express from 'express';
 import { config } from './config/index.js';
+import { configManager } from './config/config-manager.js';
 import { processMessage } from './agent.js';
 import { registry, messagesTotal, errorRate } from './utils/metrics.js';
 import type { ChatRequest{% if webhooks.get("chatwoot") %}, ChatwootWebhookPayload{% endif %} } from './types.js';
@@ -150,8 +151,54 @@ app.post('/chatwoot', async (req, res) => {
 {% endif %}
 
 // =============================================================================
+// Admin: Config Reload (called by PACO backend on config changes)
+// =============================================================================
+
+app.post('/admin/reload', async (_req, res) => {
+  try {
+    const updated = await configManager.reload();
+    const currentConfig = configManager.getConfig();
+    res.json({
+      status: updated ? 'reloaded' : 'unchanged',
+      version: configManager.getVersion(),
+      model: currentConfig.model,
+      toolCount: currentConfig.tools.length,
+      mcpServerCount: Object.keys(currentConfig.mcpServers).length,
+      skillCount: currentConfig.skills.length,
+    });
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error('[Admin] Reload error:', errMsg);
+    res.status(500).json({ error: errMsg });
+  }
+});
+
+app.get('/admin/config', (_req, res) => {
+  const currentConfig = configManager.getConfig();
+  res.json({
+    version: configManager.getVersion(),
+    lastFetchAt: configManager.getLastFetchAt(),
+    connectedToPaco: configManager.isConnectedToPaco(),
+    model: currentConfig.model,
+    systemPromptLength: currentConfig.systemPrompt.length,
+    mcpServers: Object.keys(currentConfig.mcpServers),
+    tools: currentConfig.tools.map(t => t.name),
+    skills: currentConfig.skills.map(s => ({ code: s.code, enabled: s.is_enabled })),
+  });
+});
+
+// =============================================================================
 // Start Server
 // =============================================================================
+
+// Load dynamic config from PACO API on startup (best-effort)
+configManager.reload().then(updated => {
+  if (updated) {
+    console.log('[ConfigManager] Loaded live config from PACO API');
+  } else {
+    console.log('[ConfigManager] Using baked-in defaults');
+  }
+});
 
 app.listen(config.port, () => {
   console.log(`{{ agent.display_name }} running on port ${config.port}`);
@@ -163,4 +210,5 @@ app.listen(config.port, () => {
 {% if webhooks.get("chatwoot") %}
   console.log(`  Chatwoot: http://localhost:${config.port}/chatwoot`);
 {% endif %}
+  console.log(`  Admin: http://localhost:${config.port}/admin/config`);
 });

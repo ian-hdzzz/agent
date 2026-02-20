@@ -5,9 +5,10 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from './config/index.js';
+import { configManager } from './config/config-manager.js';
 import { SKILL_REGISTRY, getSkill } from './skills/index.js';
 import { buildSystemPrompt } from './skills/base.js';
-import { getToolsForSkill, executeTool, TOOL_DEFINITIONS } from './tools.js';
+import { getToolsForSkill, getToolDefinitions, executeTool } from './tools.js';
 import { classifyMessage } from './utils/classifier.js';
 import { saveMessage, getMessages } from './utils/memory.js';
 import { conversationLimiter, budgetLimiter } from './utils/rate-limiter.js';
@@ -69,7 +70,12 @@ export async function processMessage(request: ChatRequest): Promise<ChatResponse
     }
 
     const systemPrompt = buildSystemPrompt(skill);
-    const skillTools = getToolsForSkill(skill.tools);
+    const currentToolDefs = getToolDefinitions();
+    const skillTools = getToolsForSkill(skill.tools, currentToolDefs);
+
+    // Resolve model dynamically from ConfigManager (falls back to static config)
+    const dynamicConfig = configManager.getConfig();
+    const activeModel = dynamicConfig.model || config.model;
 
     // 5. Build messages array
     const messages: Array<{ role: 'user' | 'assistant'; content: string | Array<Record<string, unknown>> }> = [
@@ -79,7 +85,7 @@ export async function processMessage(request: ChatRequest): Promise<ChatResponse
 
     // 6. Claude conversation loop with tool use
     let response = await anthropic.messages.create({
-      model: config.model,
+      model: activeModel,
       max_tokens: config.maxTokens,
       system: systemPrompt,
       messages,
@@ -124,7 +130,7 @@ export async function processMessage(request: ChatRequest): Promise<ChatResponse
       messages.push({ role: 'user', content: toolResults as unknown as Array<Record<string, unknown>> });
 
       response = await anthropic.messages.create({
-        model: config.model,
+        model: activeModel,
         max_tokens: config.maxTokens,
         system: systemPrompt,
         messages,

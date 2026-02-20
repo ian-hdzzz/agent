@@ -14,6 +14,10 @@ export const config = {
   model: process.env.MODEL || 'claude-sonnet-4-5-20250929',
   maxTokens: parseInt(process.env.MAX_TOKENS || '4096'),
 
+  // PACO Integration
+  pacoApiUrl: process.env.PACO_API_URL || '',
+  pacoAgentId: process.env.PACO_AGENT_ID || '',
+
   // Classifier
   classifierModel: '{{ classifier.get("model", "claude-sonnet-4-5-20250929") }}',
   classifierTemperature: {{ classifier.get("temperature", 0.1) }},
@@ -38,7 +42,7 @@ export const config = {
   metricsEnabled: {{ 'true' if metrics.get("prometheus", True) else 'false' }},
   healthErrorThreshold: {{ metrics.get("health_error_threshold", 0.1) }},
 
-  // MCP Servers
+  // MCP Servers (baked defaults — overridden at runtime by ConfigManager)
 {% for name, server in mcp_servers.items() %}
   mcpServer_{{ name | replace('-', '_') }}: process.env.MCP_{{ name | upper | replace('-', '_') }}_URL || '{{ server.url or "" }}',
 {% endfor %}
