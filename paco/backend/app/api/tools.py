@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.core.deps import AdminUser, DbSession, OperatorUser
-from app.db.models import McpServer, Tool
+from app.db.models import Agent, AgentTool, McpServer, Tool
 
 router = APIRouter(prefix="/tools", tags=["Tools"])
 
@@ -177,6 +177,33 @@ def _httpx_transport(server: McpServer) -> Optional[httpx.AsyncHTTPTransport]:
     return None
 
 
+async def _notify_affected_agents(db, server_id: UUID) -> None:
+    """Notify all running agents that use tools from the given MCP server."""
+    from sqlalchemy.orm import selectinload
+
+    result = await db.execute(
+        select(AgentTool)
+        .join(Tool, AgentTool.tool_id == Tool.id)
+        .where(Tool.mcp_server_id == server_id)
+        .options(selectinload(AgentTool.agent))
+    )
+    agent_tools = result.scalars().all()
+
+    notified: set = set()
+    for at in agent_tools:
+        agent = at.agent
+        if agent.id in notified:
+            continue
+        if agent.status != "running" or not agent.port:
+            continue
+        notified.add(agent.id)
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(f"http://localhost:{agent.port}/admin/reload")
+        except Exception:
+            pass  # Best-effort
+
+
 # =============================================================================
 # MCP Server Endpoints
 # =============================================================================
@@ -278,6 +305,9 @@ async def update_mcp_server(
 
     await db.commit()
     await db.refresh(server)
+
+    # Notify agents using tools from this server
+    await _notify_affected_agents(db, server.id)
 
     return _server_response(server)
 
@@ -528,6 +558,9 @@ async def sync_tools_from_server(
             )
         )
 
+    # Notify agents using tools from this server
+    await _notify_affected_agents(db, server.id)
+
     return synced_tools
 
 
@@ -689,6 +722,10 @@ async def update_tool(
 
     await db.commit()
     await db.refresh(tool)
+
+    # Notify agents using this tool's MCP server
+    if tool.mcp_server_id:
+        await _notify_affected_agents(db, tool.mcp_server_id)
 
     # Get server name
     server_name = None

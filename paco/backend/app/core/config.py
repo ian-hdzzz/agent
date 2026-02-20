@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # Anthropic API
     anthropic_api_key: str = ""
 
+    # Internal API URL (used to tell agents how to reach PACO backend)
+    internal_api_url: str = "http://localhost:8000"
+
     # Infrastructure Code Generation
     generated_projects_path: str = "./generated_projects"
 

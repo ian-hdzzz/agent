@@ -13,6 +13,9 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+import httpx
+
+from app.core.config import settings
 from app.core.deps import AdminUser, DbSession, OperatorUser
 from app.core.secrets import mask_env_vars
 from app.db.models import Agent, AgentSkill, AgentTool, Skill, Tool
@@ -160,6 +163,17 @@ def _agent_to_response(agent: Agent) -> AgentResponse:
         created_at=agent.created_at,
         updated_at=agent.updated_at,
     )
+
+
+async def _notify_agent_reload(agent: Agent) -> None:
+    """Push config reload to a running agent (best-effort)."""
+    if agent.status != "running" or not agent.port:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(f"http://localhost:{agent.port}/admin/reload")
+    except Exception:
+        pass  # Best-effort; agent will get config on next startup
 
 
 # =============================================================================
@@ -338,6 +352,10 @@ async def update_agent(
 
     await db.commit()
     await db.refresh(agent)
+
+    # Notify running agent to reload config
+    await _notify_agent_reload(agent)
+
     return _agent_to_response(agent)
 
 
@@ -379,7 +397,11 @@ async def start_agent(agent_id: UUID, db: DbSession, _: OperatorUser) -> AgentSt
     try:
         agent.status = "starting"
         await db.commit()
-        pm2_status = await pm2.start(agent.pm2_name, env=agent.env_vars or None)
+        # Inject PACO env vars so the agent can reach the PACO API
+        env = dict(agent.env_vars or {})
+        env["PACO_API_URL"] = settings.internal_api_url
+        env["PACO_AGENT_ID"] = str(agent.id)
+        pm2_status = await pm2.start(agent.pm2_name, env=env)
         agent.status = "running"
         agent.last_health_check = datetime.now(timezone.utc)
         await db.commit()
@@ -438,6 +460,66 @@ async def restart_agent(agent_id: UUID, db: DbSession, _: OperatorUser) -> Agent
         raise HTTPException(status_code=500, detail=f"Failed to restart agent: {e}")
 
 
+class ApplyResponse(BaseModel):
+    success: bool
+    message: str
+    files_generated: List[str] = []
+
+
+@router.post("/{agent_id}/apply", response_model=ApplyResponse)
+async def apply_agent_config(
+    agent_id: UUID,
+    db: DbSession,
+    _: AdminUser,
+) -> ApplyResponse:
+    """Regenerate code, compile TypeScript, and restart agent via PM2."""
+    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+
+    # Step 1: Regenerate code
+    from app.services.agent_generator import AgentGenerator
+    generator = AgentGenerator()
+    gen_result = await generator.generate(agent_id)
+    if not gen_result.success:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Code generation failed: {gen_result.error}",
+        )
+
+    # Step 2: Compile TypeScript (npm run build)
+    if agent.runtime == "typescript-claude-sdk" and gen_result.project_path:
+        import asyncio
+        proc = await asyncio.create_subprocess_exec(
+            "npm", "run", "build",
+            cwd=gen_result.project_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            error_msg = stderr.decode() if stderr else "Unknown build error"
+            raise HTTPException(
+                status_code=500,
+                detail=f"TypeScript compilation failed: {error_msg}",
+            )
+
+    # Step 3: Restart via PM2 if running
+    if agent.status == "running" and agent.pm2_name:
+        pm2 = PM2Client()
+        env = dict(agent.env_vars or {})
+        env["PACO_API_URL"] = settings.internal_api_url
+        env["PACO_AGENT_ID"] = str(agent.id)
+        await pm2.restart(agent.pm2_name)
+
+    return ApplyResponse(
+        success=True,
+        message="Code regenerated, compiled, and agent restarted",
+        files_generated=gen_result.files_generated,
+    )
+
+
 @router.get("/{agent_id}/status", response_model=AgentStatusResponse)
 async def get_agent_status(agent_id: UUID, db: DbSession) -> AgentStatusResponse:
     result = await db.execute(select(Agent).where(Agent.id == agent_id))
@@ -475,7 +557,8 @@ async def attach_skill_to_agent(
 ) -> AgentSkillResponse:
     """Attach a skill to an agent."""
     result = await db.execute(select(Agent).where(Agent.id == agent_id))
-    if not result.scalar_one_or_none():
+    agent = result.scalar_one_or_none()
+    if not agent:
         raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
 
     result = await db.execute(select(Skill).where(Skill.code == request.skill_code))
@@ -493,6 +576,9 @@ async def attach_skill_to_agent(
     db.add(agent_skill)
     await db.commit()
     await db.refresh(agent_skill)
+
+    # Notify running agent to reload config
+    await _notify_agent_reload(agent)
 
     return AgentSkillResponse(
         id=str(agent_skill.id),
@@ -532,6 +618,11 @@ async def toggle_agent_skill(
     is_enabled: bool = True,
 ) -> AgentSkillResponse:
     """Enable/disable a skill for this agent."""
+    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+
     result = await db.execute(select(Skill).where(Skill.code == skill_code))
     skill = result.scalar_one_or_none()
     if not skill:
@@ -547,6 +638,9 @@ async def toggle_agent_skill(
     agent_skill.is_enabled = is_enabled
     await db.commit()
     await db.refresh(agent_skill)
+
+    # Notify running agent to reload config
+    await _notify_agent_reload(agent)
 
     return AgentSkillResponse(
         id=str(agent_skill.id),
@@ -565,6 +659,11 @@ async def detach_skill_from_agent(
     _: AdminUser,
 ) -> None:
     """Detach a skill from an agent."""
+    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+
     result = await db.execute(select(Skill).where(Skill.code == skill_code))
     skill = result.scalar_one_or_none()
     if not skill:
@@ -580,6 +679,9 @@ async def detach_skill_from_agent(
     await db.delete(agent_skill)
     await db.commit()
 
+    # Notify running agent to reload config
+    await _notify_agent_reload(agent)
+
 
 # =============================================================================
 # Tool Assignment
@@ -594,7 +696,8 @@ async def assign_tool_to_agent(
     _: AdminUser,
 ) -> AgentToolResponse:
     result = await db.execute(select(Agent).where(Agent.id == agent_id))
-    if not result.scalar_one_or_none():
+    agent = result.scalar_one_or_none()
+    if not agent:
         raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
 
     tool_id = UUID(request.tool_id)
@@ -620,6 +723,9 @@ async def assign_tool_to_agent(
     db.add(agent_tool)
     await db.commit()
     await db.refresh(agent_tool)
+
+    # Notify running agent to reload config
+    await _notify_agent_reload(agent)
 
     return AgentToolResponse(
         id=str(agent_tool.id),
@@ -662,6 +768,11 @@ async def remove_tool_from_agent(
     db: DbSession,
     _: AdminUser,
 ) -> None:
+    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+
     result = await db.execute(
         select(AgentTool).where(AgentTool.agent_id == agent_id, AgentTool.tool_id == tool_id)
     )
@@ -670,6 +781,9 @@ async def remove_tool_from_agent(
         raise HTTPException(status_code=404, detail="Tool assignment not found")
     await db.delete(agent_tool)
     await db.commit()
+
+    # Notify running agent to reload config
+    await _notify_agent_reload(agent)
 
 
 # =============================================================================
