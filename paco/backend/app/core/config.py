@@ -57,6 +57,17 @@ class Settings(BaseSettings):
     # Internal API URL (used to tell agents how to reach PACO backend)
     internal_api_url: str = "http://localhost:8000"
 
+    # Queue / Worker
+    queue_enabled: bool = True
+    queue_redis_db: int = 1
+    queue_prefix: str = "paco:queue"
+    queue_backoff_base: float = 5.0
+    queue_backoff_max: float = 300.0
+    queue_default_max_attempts: int = 5
+    heartbeat_poll_interval: int = 60
+    tool_sync_interval: int = 300
+    infra_health_interval: int = 30
+
     # Infrastructure Code Generation
     generated_projects_path: str = "./generated_projects"
 

@@ -166,9 +166,28 @@ def _agent_to_response(agent: Agent) -> AgentResponse:
 
 
 async def _notify_agent_reload(agent: Agent) -> None:
-    """Push config reload to a running agent (best-effort)."""
+    """Push config reload to a running agent.
+
+    Tries the Redis queue first (retryable delivery). Falls back to
+    direct HTTP if the queue is unavailable.
+    """
     if agent.status != "running" or not agent.port:
         return
+
+    # Try queue-based delivery
+    try:
+        from app.services.queue.redis_pool import get_queue_redis
+        from app.services.queue.core import enqueue_task
+        redis = await get_queue_redis()
+        await enqueue_task(redis, "agent_config_reload", {
+            "agent_port": agent.port,
+            "agent_name": agent.name,
+        })
+        return
+    except Exception:
+        pass  # Queue unavailable, fall back to direct HTTP
+
+    # Fallback: direct HTTP (best-effort)
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             await client.post(f"http://localhost:{agent.port}/admin/reload")

@@ -382,23 +382,57 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Tool sync warning: {e}")
 
-    # Start heartbeat scheduler for company infrastructures
+    # Start queue-based background tasks (or fall back to asyncio scheduler)
     from app.services.heartbeat_scheduler import heartbeat_scheduler
-    try:
-        # Try to connect Redis for distributed locking
-        redis_client = None
+    queue_seeded = False
+    if settings.queue_enabled:
         try:
-            import redis.asyncio as aioredis
-            redis_url = settings.redis_url if hasattr(settings, 'redis_url') else "redis://localhost:6379"
-            redis_client = aioredis.from_url(redis_url)
-            await redis_client.ping()
-            heartbeat_scheduler._redis = redis_client
-            print("Heartbeat scheduler: Redis connected")
+            from app.services.queue.redis_pool import get_queue_redis
+            from app.services.queue.core import enqueue_scheduled_task
+            import time
+
+            queue_redis = await get_queue_redis()
+
+            # Seed periodic tasks — the worker picks these up and self-reschedules
+            await enqueue_scheduled_task(
+                queue_redis, "heartbeat_trigger",
+                {"interval": settings.heartbeat_poll_interval},
+                execute_at=time.time() + 5,
+            )
+            await enqueue_scheduled_task(
+                queue_redis, "tool_sync",
+                {"interval": settings.tool_sync_interval},
+                execute_at=time.time() + 10,
+            )
+            await enqueue_scheduled_task(
+                queue_redis, "infra_health_check",
+                {"interval": settings.infra_health_interval},
+                execute_at=time.time() + 15,
+            )
+            queue_seeded = True
+            print("Queue: seeded heartbeat_trigger, tool_sync, infra_health_check")
+
+            # Also give heartbeat scheduler a Redis client for distributed locking
+            heartbeat_scheduler._redis = queue_redis
         except Exception as e:
-            print(f"Heartbeat scheduler: Redis not available ({e}), running without lock")
-        await heartbeat_scheduler.start()
-    except Exception as e:
-        print(f"Heartbeat scheduler warning: {e}")
+            print(f"Queue seeding failed ({e}), falling back to asyncio scheduler")
+
+    # Fallback: start the in-process heartbeat scheduler if queue is disabled or failed
+    if not queue_seeded:
+        try:
+            redis_client = None
+            try:
+                import redis.asyncio as aioredis
+                redis_url = settings.redis_url
+                redis_client = aioredis.from_url(redis_url)
+                await redis_client.ping()
+                heartbeat_scheduler._redis = redis_client
+                print("Heartbeat scheduler: Redis connected (fallback mode)")
+            except Exception as e:
+                print(f"Heartbeat scheduler: Redis not available ({e}), running without lock")
+            await heartbeat_scheduler.start()
+        except Exception as e:
+            print(f"Heartbeat scheduler warning: {e}")
 
     # Check Langfuse connectivity
     if langfuse_client.is_configured:
@@ -416,6 +450,11 @@ async def lifespan(app: FastAPI):
     try:
         from app.services.heartbeat_scheduler import heartbeat_scheduler
         await heartbeat_scheduler.stop()
+    except Exception:
+        pass
+    try:
+        from app.services.queue.redis_pool import close_queue_redis
+        await close_queue_redis()
     except Exception:
         pass
     print("Shutting down PACO")

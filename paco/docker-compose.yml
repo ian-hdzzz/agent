@@ -105,6 +105,31 @@ services:
       - ./flows:/app/flows:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
+  # PACO Worker - Redis queue background task processor
+  paco-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: paco-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-paco}:${POSTGRES_PASSWORD:-paco_secret}@postgres:5432/paco
+      REDIS_URL: redis://redis:6379
+      QUEUE_REDIS_DB: 1
+      SECRET_KEY: ${PACO_SECRET_KEY:-your-secret-key-change-me}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: http://langfuse:3000
+      AGENTS_CONFIG_PATH: /app/agents
+    volumes:
+      - ./agents:/app/agents:ro
+    command: ["python", "-m", "app.services.queue.worker"]
+
   # PACO Frontend - Next.js Control Plane UI
   paco-frontend:
     build:

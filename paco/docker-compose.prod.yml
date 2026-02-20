@@ -95,6 +95,14 @@ services:
           memory: 1G
     <<: *logging-defaults
 
+  paco-worker:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    <<: *logging-defaults
+
   paco-frontend:
     ports:
       - "127.0.0.1:3006:3000"
