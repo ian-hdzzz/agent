@@ -17,7 +17,8 @@ from sqlalchemy import select
 
 from app.api import agent_builder, agents, auth, codegen, company, executions, hive, infrastructures, infra_codegen, infra_deploy, infra_monitor, infra_upgrade, playground, processes, proxy, settings as settings_api, skills, tools, users, workflows, ws
 from app.core.config import settings
-from app.db.models import Agent, AgentSkill, Base, Skill
+from app.core.security import get_password_hash, verify_password
+from app.db.models import Agent, AgentSkill, Base, Skill, User
 from app.services.skill_filesystem import SkillFilesystemService
 from app.db.session import async_session_maker, engine
 from app.services.langfuse_client import langfuse_client
@@ -50,6 +51,34 @@ async def _create_missing_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     print("Missing tables check completed")
+
+
+async def _ensure_default_admin():
+    """Ensure the default admin user exists with the correct password."""
+    default_email = "admin@paco.local"
+    default_password = "admin123"
+
+    async with async_session_maker() as db:
+        result = await db.execute(select(User).where(User.email == default_email))
+        user = result.scalar_one_or_none()
+
+        if user:
+            if not verify_password(default_password, user.password_hash):
+                user.password_hash = get_password_hash(default_password)
+                await db.commit()
+                print(f"Admin user password reset to default")
+            else:
+                print(f"Admin user OK")
+        else:
+            db.add(User(
+                email=default_email,
+                password_hash=get_password_hash(default_password),
+                name="PACO Admin",
+                role="admin",
+                is_active=True,
+            ))
+            await db.commit()
+            print(f"Default admin user created")
 
 
 async def _sync_agents_on_startup():
@@ -328,6 +357,12 @@ async def lifespan(app: FastAPI):
         await _create_missing_tables()
     except Exception as e:
         print(f"Create tables warning: {e}")
+
+    # Ensure default admin user
+    try:
+        await _ensure_default_admin()
+    except Exception as e:
+        print(f"Admin user warning: {e}")
 
     # Auto-seed agents from YAML
     try:

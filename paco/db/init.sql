@@ -37,7 +37,7 @@ CREATE TABLE users (
 -- Create default admin user (password: admin123 - CHANGE THIS!)
 INSERT INTO users (email, password_hash, name, role) VALUES (
     'admin@paco.local',
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.//H4Y4KqYl.K.y',
+    '$2b$12$577UnPfvtq8YnCksCeuHw.CZbGrduvCUo.Y.bT/UxKVaxS61Nw3/q',
     'PACO Admin',
     'admin'
 );
