@@ -16,6 +16,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
 import pg from "pg";
+import { ProxyConfigManager } from "../../shared/proxy-config.js";
 
 // Configuration
 const PG_CONFIG = {
@@ -28,6 +29,9 @@ const PG_CONFIG = {
 };
 
 const pgPool = new pg.Pool(PG_CONFIG);
+
+// Dynamic proxy config (for future external integrations)
+const proxyManager = new ProxyConfigManager("agora-tools");
 
 // Helper to get Mexico timezone date
 function getMexicoDate(): Date {
@@ -517,6 +521,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start server
 async function main() {
+  // Initialize proxy config from backend (with fallback to env var)
+  await proxyManager.initialize();
+
   const app = express();
   const PORT = parseInt(process.env.PORT || "3000");
 
@@ -541,6 +548,24 @@ async function main() {
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", name: "agora-tools", version: "1.0.0" });
+  });
+
+  // Proxy config reload endpoint
+  app.post("/reload-config", async (_req, res) => {
+    try {
+      await proxyManager.reload();
+      res.json({ status: "ok", message: "Config reloaded" });
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // Proxy status endpoint (for debugging)
+  app.get("/proxy-status", (_req, res) => {
+    res.json(proxyManager.getStatus());
   });
 
   app.listen(PORT, "0.0.0.0", () => {

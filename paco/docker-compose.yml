@@ -184,8 +184,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      paco-backend:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-paco}:${POSTGRES_PASSWORD:-paco_secret}@postgres:5432/paco
+      PACO_BACKEND_URL: http://paco-backend:8000
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/health"]
       interval: 10s
