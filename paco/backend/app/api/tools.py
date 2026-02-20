@@ -33,6 +33,7 @@ class McpServerResponse(BaseModel):
     transport: str
     url: Optional[str]
     proxy_url: Optional[str]
+    proxy_config: Optional[Dict[str, Any]] = None
     command: Optional[str]
     status: str
     last_health_check: Optional[datetime]
@@ -104,6 +105,44 @@ class ToolUpdateRequest(BaseModel):
     is_enabled: Optional[bool] = None
 
 
+class ProxyConfig(BaseModel):
+    """Proxy configuration for an MCP server or tool."""
+
+    enabled: bool = True
+    protocol: str = "http"  # http, https, socks5
+    url: str
+    auth: Optional[Dict[str, str]] = None  # {"username": "...", "password": "..."}
+    bypass_patterns: List[str] = []
+
+
+class ProxyConfigUpdateRequest(BaseModel):
+    """Update proxy config for a server."""
+
+    proxy_config: Optional[ProxyConfig] = None  # null = remove proxy
+
+
+class ToolProxyOverrideRequest(BaseModel):
+    """Set proxy override for a tool."""
+
+    proxy_config: Optional[Dict[str, Any]] = None  # null = inherit from server
+
+
+class ServerProxyResponse(BaseModel):
+    """Full proxy config for a server including tool overrides."""
+
+    server: Optional[Dict[str, Any]] = None
+    tools: Dict[str, Optional[Dict[str, Any]]] = {}
+
+
+class ProxyTestResponse(BaseModel):
+    """Proxy connectivity test result."""
+
+    success: bool
+    latency_ms: Optional[float] = None
+    error: Optional[str] = None
+    proxy_ip: Optional[str] = None
+
+
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -118,6 +157,7 @@ def _server_response(server: McpServer) -> McpServerResponse:
         transport=server.transport,
         url=server.url,
         proxy_url=server.proxy_url,
+        proxy_config=server.proxy_config,
         command=server.command,
         status=server.status,
         last_health_check=server.last_health_check,
@@ -127,6 +167,10 @@ def _server_response(server: McpServer) -> McpServerResponse:
 
 def _httpx_transport(server: McpServer) -> Optional[httpx.AsyncHTTPTransport]:
     """Build an httpx transport with proxy if the server has one configured."""
+    # New proxy_config takes priority
+    if server.proxy_config and server.proxy_config.get("enabled") and server.proxy_config.get("url"):
+        return httpx.AsyncHTTPTransport(proxy=server.proxy_config["url"])
+    # Fallback to legacy proxy_url
     if server.proxy_url:
         return httpx.AsyncHTTPTransport(proxy=server.proxy_url)
     return None
@@ -277,6 +321,124 @@ async def check_mcp_server_health(
     await db.refresh(server)
 
     return _server_response(server)
+
+
+@router.get("/servers/{server_id}/proxy", response_model=ServerProxyResponse)
+async def get_server_proxy_config(
+    server_id: UUID,
+    db: DbSession,
+) -> ServerProxyResponse:
+    """Get full proxy config for a server including tool overrides."""
+    result = await db.execute(select(McpServer).where(McpServer.id == server_id))
+    server = result.scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=404, detail=f"MCP server {server_id} not found")
+
+    # Get tool overrides
+    result = await db.execute(
+        select(Tool).where(
+            Tool.mcp_server_id == server_id,
+            Tool.proxy_config.isnot(None),
+        )
+    )
+    tools_with_overrides = result.scalars().all()
+    tool_overrides = {t.name: t.proxy_config for t in tools_with_overrides}
+
+    return ServerProxyResponse(
+        server=server.proxy_config,
+        tools=tool_overrides,
+    )
+
+
+@router.get("/servers/by-name/{server_name}/proxy", response_model=ServerProxyResponse)
+async def get_server_proxy_config_by_name(
+    server_name: str,
+    db: DbSession,
+) -> ServerProxyResponse:
+    """Get proxy config by server name (used by MCP servers themselves)."""
+    result = await db.execute(select(McpServer).where(McpServer.name == server_name))
+    server = result.scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=404, detail=f"MCP server '{server_name}' not found")
+
+    result = await db.execute(
+        select(Tool).where(
+            Tool.mcp_server_id == server.id,
+            Tool.proxy_config.isnot(None),
+        )
+    )
+    tools_with_overrides = result.scalars().all()
+    tool_overrides = {t.name: t.proxy_config for t in tools_with_overrides}
+
+    return ServerProxyResponse(
+        server=server.proxy_config,
+        tools=tool_overrides,
+    )
+
+
+@router.put("/servers/{server_id}/proxy", response_model=McpServerResponse)
+async def update_server_proxy_config(
+    server_id: UUID,
+    request: ProxyConfigUpdateRequest,
+    db: DbSession,
+    _: AdminUser,
+) -> McpServerResponse:
+    """Update server proxy config and notify the MCP server."""
+    result = await db.execute(select(McpServer).where(McpServer.id == server_id))
+    server = result.scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=404, detail=f"MCP server {server_id} not found")
+
+    server.proxy_config = request.proxy_config.model_dump() if request.proxy_config else None
+    await db.commit()
+    await db.refresh(server)
+
+    # Notify MCP server to reload config
+    if server.transport == "http" and server.url:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(f"{server.url}/reload-config")
+        except Exception:
+            pass  # Best-effort notification
+
+    return _server_response(server)
+
+
+@router.post("/servers/{server_id}/proxy/test", response_model=ProxyTestResponse)
+async def test_server_proxy(
+    server_id: UUID,
+    db: DbSession,
+    _: OperatorUser,
+) -> ProxyTestResponse:
+    """Test proxy connectivity for a server."""
+    import time
+
+    result = await db.execute(select(McpServer).where(McpServer.id == server_id))
+    server = result.scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=404, detail=f"MCP server {server_id} not found")
+
+    if not server.proxy_config or not server.proxy_config.get("enabled"):
+        return ProxyTestResponse(success=False, error="No proxy configured")
+
+    proxy_url = server.proxy_config.get("url", "")
+    if not proxy_url:
+        return ProxyTestResponse(success=False, error="No proxy URL configured")
+
+    try:
+        start = time.monotonic()
+        transport = httpx.AsyncHTTPTransport(proxy=proxy_url)
+        async with httpx.AsyncClient(timeout=10.0, transport=transport) as client:
+            resp = await client.get("https://httpbin.org/ip")
+            latency = (time.monotonic() - start) * 1000
+            data = resp.json()
+            return ProxyTestResponse(
+                success=True,
+                latency_ms=round(latency, 1),
+                proxy_ip=data.get("origin"),
+            )
+    except Exception as e:
+        return ProxyTestResponse(success=False, error=str(e))
 
 
 @router.post("/servers/{server_id}/sync", response_model=List[ToolResponse])
@@ -563,3 +725,50 @@ async def delete_tool(
 
     await db.delete(tool)
     await db.commit()
+
+
+@router.put("/{tool_id}/proxy")
+async def update_tool_proxy_override(
+    tool_id: UUID,
+    request: ToolProxyOverrideRequest,
+    db: DbSession,
+    _: AdminUser,
+) -> ToolResponse:
+    """Set or clear proxy override for a specific tool."""
+    result = await db.execute(select(Tool).where(Tool.id == tool_id))
+    tool = result.scalar_one_or_none()
+    if not tool:
+        raise HTTPException(status_code=404, detail=f"Tool {tool_id} not found")
+
+    tool.proxy_config = request.proxy_config
+    await db.commit()
+    await db.refresh(tool)
+
+    # Notify parent MCP server to reload
+    if tool.mcp_server_id:
+        result = await db.execute(select(McpServer).where(McpServer.id == tool.mcp_server_id))
+        server = result.scalar_one_or_none()
+        if server and server.transport == "http" and server.url:
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.post(f"{server.url}/reload-config")
+            except Exception:
+                pass
+
+    server_name = None
+    if tool.mcp_server_id:
+        result = await db.execute(select(McpServer).where(McpServer.id == tool.mcp_server_id))
+        srv = result.scalar_one_or_none()
+        if srv:
+            server_name = srv.name
+
+    return ToolResponse(
+        id=str(tool.id),
+        name=tool.name,
+        description=tool.description,
+        mcp_server_id=str(tool.mcp_server_id) if tool.mcp_server_id else None,
+        mcp_server_name=server_name,
+        input_schema=tool.input_schema,
+        is_enabled=tool.is_enabled,
+        created_at=tool.created_at,
+    )
