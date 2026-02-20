@@ -522,6 +522,21 @@ function ToolModal({
   const [isEnabled, setIsEnabled] = useState(tool?.is_enabled ?? true);
   const [error, setError] = useState<string | null>(null);
 
+  // Proxy override state
+  const [proxyOverride, setProxyOverride] = useState<"inherit" | "none" | "custom">(
+    tool?.proxy_config === null || tool?.proxy_config === undefined
+      ? "inherit"
+      : tool?.proxy_config?.enabled === false
+      ? "none"
+      : "custom"
+  );
+  const [toolProxyUrl, setToolProxyUrl] = useState(
+    tool?.proxy_config?.url ?? ""
+  );
+  const [toolProxyProtocol, setToolProxyProtocol] = useState(
+    tool?.proxy_config?.protocol ?? "http"
+  );
+
   // State for inline MCP server creation
   const [showServerModal, setShowServerModal] = useState(false);
 
@@ -545,7 +560,7 @@ function ToolModal({
     onError: (err: any) => setError(err.detail || "Failed to update tool"),
   });
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
@@ -562,6 +577,27 @@ function ToolModal({
     } catch {
       setError("Invalid JSON in input schema");
       return;
+    }
+
+    // Save proxy override if changed
+    if (isEdit && tool) {
+      let proxyConfig: Record<string, any> | null = null;
+      if (proxyOverride === "none") {
+        proxyConfig = { enabled: false };
+      } else if (proxyOverride === "custom" && toolProxyUrl.trim()) {
+        proxyConfig = {
+          enabled: true,
+          protocol: toolProxyProtocol,
+          url: toolProxyUrl.trim(),
+        };
+      }
+      // null = inherit (default)
+      try {
+        await api.updateToolProxyOverride(tool.id, proxyConfig);
+      } catch (err: any) {
+        setError(err.detail || "Failed to update proxy override");
+        return;
+      }
     }
 
     if (isEdit) {
@@ -722,6 +758,60 @@ function ToolModal({
                     )}
                   />
                 </button>
+              </div>
+            )}
+
+            {/* Proxy Override */}
+            {isEdit && (
+              <div className="border border-border rounded-lg p-3 space-y-3">
+                <label className="block text-sm font-semibold text-foreground">
+                  Proxy Override
+                </label>
+                <select
+                  value={proxyOverride}
+                  onChange={(e) =>
+                    setProxyOverride(e.target.value as "inherit" | "none" | "custom")
+                  }
+                  className="input w-full"
+                >
+                  <option value="inherit">Inherit from MCP Server</option>
+                  <option value="none">No Proxy (direct connection)</option>
+                  <option value="custom">Custom Proxy</option>
+                </select>
+
+                {proxyOverride === "custom" && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 text-sm">
+                        <input
+                          type="radio"
+                          value="http"
+                          checked={toolProxyProtocol === "http"}
+                          onChange={() => setToolProxyProtocol("http")}
+                          className="accent-coral-500"
+                        />
+                        HTTP
+                      </label>
+                      <label className="flex items-center gap-1.5 text-sm">
+                        <input
+                          type="radio"
+                          value="socks5"
+                          checked={toolProxyProtocol === "socks5"}
+                          onChange={() => setToolProxyProtocol("socks5")}
+                          className="accent-coral-500"
+                        />
+                        SOCKS5
+                      </label>
+                    </div>
+                    <input
+                      type="text"
+                      value={toolProxyUrl}
+                      onChange={(e) => setToolProxyUrl(e.target.value)}
+                      placeholder="http://proxy:3128"
+                      className="input w-full"
+                    />
+                  </div>
+                )}
               </div>
             )}
 
