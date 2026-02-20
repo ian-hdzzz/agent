@@ -208,6 +208,33 @@ class ApiClient {
     });
   }
 
+  async getServerProxyConfig(serverId: string) {
+    return this.request<ServerProxyResponse>(
+      `/api/tools/servers/${serverId}/proxy`
+    );
+  }
+
+  async updateServerProxyConfig(serverId: string, proxyConfig: ProxyConfig | null) {
+    return this.request<McpServer>(`/api/tools/servers/${serverId}/proxy`, {
+      method: "PUT",
+      body: JSON.stringify({ proxy_config: proxyConfig }),
+    });
+  }
+
+  async testServerProxy(serverId: string) {
+    return this.request<ProxyTestResponse>(
+      `/api/tools/servers/${serverId}/proxy/test`,
+      { method: "POST" }
+    );
+  }
+
+  async updateToolProxyOverride(toolId: string, proxyConfig: Record<string, any> | null) {
+    return this.request<Tool>(`/api/tools/${toolId}/proxy`, {
+      method: "PUT",
+      body: JSON.stringify({ proxy_config: proxyConfig }),
+    });
+  }
+
   // Execution endpoints
   async getExecutions(params?: {
     agent_id?: string;
@@ -1192,12 +1219,34 @@ export interface UpdateAgentRequest {
   config_yaml?: string;
 }
 
+export interface ProxyConfig {
+  enabled: boolean;
+  protocol: string;
+  url: string;
+  auth?: { username: string; password: string };
+  bypass_patterns?: string[];
+}
+
+export interface ServerProxyResponse {
+  server: ProxyConfig | null;
+  tools: Record<string, ProxyConfig | null>;
+}
+
+export interface ProxyTestResponse {
+  success: boolean;
+  latency_ms: number | null;
+  error: string | null;
+  proxy_ip: string | null;
+}
+
 export interface McpServer {
   id: string;
   name: string;
   description: string | null;
   transport: string;
   url: string | null;
+  proxy_url: string | null;
+  proxy_config: ProxyConfig | null;
   command: string | null;
   status: string;
   last_health_check: string | null;
@@ -1209,6 +1258,7 @@ export interface CreateMcpServerRequest {
   description?: string;
   transport?: string;
   url?: string;
+  proxy_url?: string;
   command?: string;
   args?: string[];
   env?: Record<string, string>;
@@ -1222,6 +1272,7 @@ export interface Tool {
   mcp_server_name: string | null;
   input_schema: Record<string, any>;
   is_enabled: boolean;
+  proxy_config: Record<string, any> | null;
   created_at: string;
 }
 
@@ -1245,6 +1296,7 @@ export interface UpdateMcpServerRequest {
   transport?: string;
   url?: string;
   proxy_url?: string;
+  proxy_config?: ProxyConfig | null;
   command?: string;
   args?: string[];
   env?: Record<string, string>;
