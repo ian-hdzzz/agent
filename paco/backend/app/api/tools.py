@@ -81,6 +81,7 @@ class ToolResponse(BaseModel):
     mcp_server_name: Optional[str]
     input_schema: Dict[str, Any]
     is_enabled: bool
+    proxy_config: Optional[Dict[str, Any]] = None
     created_at: datetime
 
     class Config:
@@ -522,6 +523,7 @@ async def sync_tools_from_server(
                 mcp_server_name=server.name,
                 input_schema=tool.input_schema,
                 is_enabled=tool.is_enabled,
+                proxy_config=tool.proxy_config,
                 created_at=tool.created_at,
             )
         )
@@ -571,6 +573,7 @@ async def list_tools(
             mcp_server_name=server_names.get(tool.mcp_server_id),
             input_schema=tool.input_schema,
             is_enabled=tool.is_enabled,
+            proxy_config=tool.proxy_config,
             created_at=tool.created_at,
         )
         for tool in tools
@@ -607,6 +610,7 @@ async def get_tool(tool_id: UUID, db: DbSession) -> ToolResponse:
         mcp_server_name=server_name,
         input_schema=tool.input_schema,
         is_enabled=tool.is_enabled,
+        proxy_config=tool.proxy_config,
         created_at=tool.created_at,
     )
 
@@ -652,6 +656,7 @@ async def create_tool(
         mcp_server_name=server_name,
         input_schema=tool.input_schema,
         is_enabled=tool.is_enabled,
+        proxy_config=tool.proxy_config,
         created_at=tool.created_at,
     )
 
@@ -703,6 +708,7 @@ async def update_tool(
         mcp_server_name=server_name,
         input_schema=tool.input_schema,
         is_enabled=tool.is_enabled,
+        proxy_config=tool.proxy_config,
         created_at=tool.created_at,
     )
 
@@ -770,5 +776,6 @@ async def update_tool_proxy_override(
         mcp_server_name=server_name,
         input_schema=tool.input_schema,
         is_enabled=tool.is_enabled,
+        proxy_config=tool.proxy_config,
         created_at=tool.created_at,
     )
