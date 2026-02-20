@@ -1259,6 +1259,7 @@ export interface CreateMcpServerRequest {
   transport?: string;
   url?: string;
   proxy_url?: string;
+  proxy_config?: ProxyConfig | null;
   command?: string;
   args?: string[];
   env?: Record<string, string>;

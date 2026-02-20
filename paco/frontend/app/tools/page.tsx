@@ -47,11 +47,37 @@ function McpServerModal({
   const [description, setDescription] = useState(server?.description ?? "");
   const [transport, setTransport] = useState(server?.transport ?? "http");
   const [url, setUrl] = useState(server?.url ?? "");
-  const [proxyUrl, setProxyUrl] = useState("");
   const [command, setCommand] = useState(server?.command ?? "");
   const [args, setArgs] = useState("");
   const [envJson, setEnvJson] = useState("{}");
   const [error, setError] = useState<string | null>(null);
+
+  // Proxy config state
+  const [proxyEnabled, setProxyEnabled] = useState(false);
+  const [proxyProtocol, setProxyProtocol] = useState<"http" | "socks5">("http");
+  const [proxyServerUrl, setProxyServerUrl] = useState("");
+  const [proxyUsername, setProxyUsername] = useState("");
+  const [proxyPassword, setProxyPassword] = useState("");
+  const [bypassPatterns, setBypassPatterns] = useState("");
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    latency_ms?: number | null;
+    error?: string | null;
+    proxy_ip?: string | null;
+  } | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
+
+  // Initialize proxy state from server data
+  useState(() => {
+    if (server?.proxy_config) {
+      setProxyEnabled(server.proxy_config.enabled ?? false);
+      setProxyProtocol(server.proxy_config.protocol === "socks5" ? "socks5" : "http");
+      setProxyServerUrl(server.proxy_config.url ?? "");
+      setProxyUsername(server.proxy_config.auth?.username ?? "");
+      setProxyPassword(server.proxy_config.auth?.password ?? "");
+      setBypassPatterns((server.proxy_config.bypass_patterns ?? []).join(", "));
+    }
+  });
 
   const createMutation = useMutation({
     mutationFn: (data: CreateMcpServerRequest) => api.createMcpServer(data),
@@ -113,13 +139,29 @@ function McpServerModal({
       .map((a) => a.trim())
       .filter(Boolean);
 
+    // Build proxy config
+    const proxyConfig = proxyEnabled
+      ? {
+          enabled: true,
+          protocol: proxyProtocol,
+          url: proxyServerUrl.trim(),
+          ...(proxyUsername.trim()
+            ? { auth: { username: proxyUsername.trim(), password: proxyPassword } }
+            : {}),
+          bypass_patterns: bypassPatterns
+            .split(",")
+            .map((p) => p.trim())
+            .filter(Boolean),
+        }
+      : null;
+
     if (isEdit) {
       updateMutation.mutate({
         name: name.trim(),
         description: description || undefined,
         transport,
         url: url.trim() || undefined,
-        proxy_url: proxyUrl.trim() || undefined,
+        proxy_config: proxyConfig,
         command: command.trim() || undefined,
         args: parsedArgs.length > 0 ? parsedArgs : undefined,
         env: parsedEnv,
@@ -130,10 +172,25 @@ function McpServerModal({
         description: description || undefined,
         transport,
         url: url.trim() || undefined,
+        proxy_config: proxyConfig,
         command: command.trim() || undefined,
         args: parsedArgs.length > 0 ? parsedArgs : undefined,
         env: parsedEnv,
       });
+    }
+  }
+
+  async function handleTestProxy() {
+    if (!server?.id) return;
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const result = await api.testServerProxy(server.id);
+      setTestResult(result);
+    } catch (err: any) {
+      setTestResult({ success: false, error: err.detail || "Test failed" });
+    } finally {
+      setTestLoading(false);
     }
   }
 
@@ -222,19 +279,151 @@ function McpServerModal({
             </div>
           )}
 
-          {/* Proxy URL (http only) */}
+          {/* Proxy Configuration Section */}
           {transport === "http" && (
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Proxy URL
-              </label>
-              <input
-                type="text"
-                value={proxyUrl}
-                onChange={(e) => setProxyUrl(e.target.value)}
-                placeholder="Optional proxy URL"
-                className="input w-full"
-              />
+            <div className="border border-border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Proxy Configuration
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setProxyEnabled(!proxyEnabled)}
+                  className={cn(
+                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                    proxyEnabled ? "bg-coral-500" : "bg-foreground-muted/30"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                      proxyEnabled ? "translate-x-6" : "translate-x-1"
+                    )}
+                  />
+                </button>
+              </div>
+
+              {proxyEnabled && (
+                <>
+                  {/* Protocol */}
+                  <div className="flex items-center gap-4">
+                    <label className="text-sm text-foreground-muted">Protocol:</label>
+                    <label className="flex items-center gap-1.5 text-sm">
+                      <input
+                        type="radio"
+                        name="proxyProtocol"
+                        value="http"
+                        checked={proxyProtocol === "http"}
+                        onChange={() => setProxyProtocol("http")}
+                        className="accent-coral-500"
+                      />
+                      HTTP/HTTPS
+                    </label>
+                    <label className="flex items-center gap-1.5 text-sm">
+                      <input
+                        type="radio"
+                        name="proxyProtocol"
+                        value="socks5"
+                        checked={proxyProtocol === "socks5"}
+                        onChange={() => setProxyProtocol("socks5")}
+                        className="accent-coral-500"
+                      />
+                      SOCKS5
+                    </label>
+                  </div>
+
+                  {/* Proxy URL */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">
+                      Proxy URL <span className="text-error">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={proxyServerUrl}
+                      onChange={(e) => setProxyServerUrl(e.target.value)}
+                      placeholder={
+                        proxyProtocol === "socks5"
+                          ? "socks5://proxy:1080"
+                          : "http://proxy:3128"
+                      }
+                      className="input w-full"
+                    />
+                  </div>
+
+                  {/* Auth */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm text-foreground-muted mb-1">
+                        Username
+                      </label>
+                      <input
+                        type="text"
+                        value={proxyUsername}
+                        onChange={(e) => setProxyUsername(e.target.value)}
+                        placeholder="Optional"
+                        className="input w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-foreground-muted mb-1">
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        value={proxyPassword}
+                        onChange={(e) => setProxyPassword(e.target.value)}
+                        placeholder="Optional"
+                        className="input w-full"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Bypass */}
+                  <div>
+                    <label className="block text-sm text-foreground-muted mb-1">
+                      Bypass Patterns (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={bypassPatterns}
+                      onChange={(e) => setBypassPatterns(e.target.value)}
+                      placeholder="*.internal.local, 10.0.0.*"
+                      className="input w-full"
+                    />
+                  </div>
+
+                  {/* Test Connection */}
+                  {isEdit && (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleTestProxy}
+                        disabled={testLoading || !proxyServerUrl.trim()}
+                        className="btn-ghost px-3 py-1.5 text-sm flex items-center gap-1.5"
+                      >
+                        {testLoading ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Search className="w-3.5 h-3.5" />
+                        )}
+                        Test Connection
+                      </button>
+                      {testResult && (
+                        <span
+                          className={cn(
+                            "text-sm",
+                            testResult.success ? "text-success" : "text-error"
+                          )}
+                        >
+                          {testResult.success
+                            ? `Connected (${testResult.latency_ms}ms) - IP: ${testResult.proxy_ip}`
+                            : testResult.error}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
 
