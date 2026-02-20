@@ -77,6 +77,7 @@ class McpServer(Base):
     args: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=list)
     env: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
     auth_config: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    proxy_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="unknown")
     last_health_check: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
@@ -108,6 +109,7 @@ class Tool(Base):
     input_schema: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
     output_schema: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    proxy_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
