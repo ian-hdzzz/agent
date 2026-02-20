@@ -16,12 +16,15 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
 import { ProxyAgent, fetch as undiciFetch } from "undici";
+import { ProxyConfigManager } from "../../shared/proxy-config.js";
 
 // Configuration
 const CEA_API_BASE =
   process.env.CEA_API_URL ||
   "https://aquacis-cf.ceaqueretaro.gob.mx/Comercial/services";
-const PROXY_URL = process.env.CEA_PROXY_URL || null;
+
+// Dynamic proxy config (replaces hardcoded CEA_PROXY_URL)
+const proxyManager = new ProxyConfigManager("cea-tools");
 
 // Utility Functions
 async function fetchWithRetry(
@@ -31,6 +34,7 @@ async function fetchWithRetry(
     headers?: Record<string, string>;
     body?: string;
   },
+  toolName: string,
   maxRetries = 3,
   delayMs = 1000
 ): Promise<Response> {
@@ -39,14 +43,16 @@ async function fetchWithRetry(
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       let response: Response;
+      const dispatcher = proxyManager.shouldBypass(toolName, url)
+        ? null
+        : proxyManager.getDispatcherForTool(toolName);
 
-      if (PROXY_URL && url.includes("ceaqueretaro.gob.mx")) {
-        const proxyAgent = new ProxyAgent(PROXY_URL);
+      if (dispatcher) {
         response = (await undiciFetch(url, {
           method: options.method || "GET",
           headers: options.headers,
           body: options.body,
-          dispatcher: proxyAgent,
+          dispatcher,
           // @ts-ignore
           signal: AbortSignal.timeout(30000),
         })) as unknown as Response;
@@ -410,7 +416,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             method: "POST",
             headers: { "Content-Type": "text/xml;charset=UTF-8" },
             body: buildDeudaSOAP(contrato),
-          }
+          },
+          "get_deuda"
         );
         const xml = await response.text();
         const parsed = parseDeudaResponse(xml);
@@ -456,7 +463,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               method: "POST",
               headers: { "Content-Type": "text/xml;charset=UTF-8" },
               body: buildConsumoSOAP(contrato, explotacion),
-            }
+            },
+            "get_consumo"
           );
           const xml = await response.text();
           parsed = parseConsumoResponse(xml);
@@ -513,7 +521,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             method: "POST",
             headers: { "Content-Type": "text/xml;charset=UTF-8" },
             body: buildContratoSOAP(contrato),
-          }
+          },
+          "get_contract_details"
         );
         const xml = await response.text();
         const parsed = parseContratoResponse(xml);
@@ -584,6 +593,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start server
 async function main() {
+  // Initialize proxy config from backend (with fallback to env var)
+  await proxyManager.initialize();
+
   const app = express();
   const PORT = parseInt(process.env.PORT || "3000");
 
@@ -608,6 +620,24 @@ async function main() {
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", name: "cea-tools", version: "1.0.0" });
+  });
+
+  // Proxy config reload endpoint
+  app.post("/reload-config", async (_req, res) => {
+    try {
+      await proxyManager.reload();
+      res.json({ status: "ok", message: "Config reloaded" });
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // Proxy status endpoint (for debugging)
+  app.get("/proxy-status", (_req, res) => {
+    res.json(proxyManager.getStatus());
   });
 
   app.listen(PORT, "0.0.0.0", () => {

@@ -159,10 +159,15 @@ services:
       dockerfile: Dockerfile
     container_name: paco-cea-tools
     restart: unless-stopped
+    depends_on:
+      paco-backend:
+        condition: service_started
     environment:
       CEA_API_URL: ${CEA_API_URL:-}
       CEA_API_USER: ${CEA_API_USER:-}
       CEA_API_PASSWORD: ${CEA_API_PASSWORD:-}
+      CEA_PROXY_URL: ${CEA_PROXY_URL:-}
+      PACO_BACKEND_URL: http://paco-backend:8000
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/health"]
       interval: 10s
