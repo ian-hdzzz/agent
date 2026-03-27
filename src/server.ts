@@ -185,11 +185,99 @@ async function handleChat(req: Request, res: Response): Promise<void> {
 }
 
 // ============================================
+// Evolution API Webhook Handler
+// ============================================
+
+async function handleEvolutionWebhook(req: Request, res: Response): Promise<void> {
+    const requestId = (req as any).requestId || crypto.randomUUID().substring(0, 8);
+    const body = req.body;
+
+    // Only process incoming messages
+    if (body.event !== "messages.upsert") {
+        res.status(200).json({ status: "ignored", reason: "not a message event" });
+        return;
+    }
+
+    const data = body.data;
+
+    // Ignore messages sent by us
+    if (data?.key?.fromMe) {
+        res.status(200).json({ status: "ignored", reason: "fromMe" });
+        return;
+    }
+
+    // Extract message text
+    const messageText =
+        data?.message?.conversation ||
+        data?.message?.extendedTextMessage?.text ||
+        data?.message?.imageMessage?.caption ||
+        "";
+
+    if (!messageText) {
+        res.status(200).json({ status: "ignored", reason: "no text content" });
+        return;
+    }
+
+    const remoteJid = data?.key?.remoteJid as string;
+    const instance = body.instance as string;
+
+    console.log(`[${requestId}] Evolution webhook from ${remoteJid}: "${messageText.substring(0, 80)}"`);
+
+    // Respond 200 immediately so Evolution doesn't retry
+    res.status(200).json({ status: "received" });
+
+    try {
+        const result = await runWorkflow({
+            input_as_text: messageText,
+            conversationId: remoteJid,
+            contactId: data?.key?.participant || remoteJid,
+            metadata: { source: "evolution", instance, pushName: data?.pushName }
+        });
+
+        const replyText = result.output_text || "Lo siento, no pude procesar tu mensaje.";
+
+        // Send reply back via Evolution API
+        const evolutionUrl = process.env.EVOLUTION_API_URL;
+        const evolutionApiKey = process.env.EVOLUTION_API_KEY;
+
+        if (!evolutionUrl || !evolutionApiKey) {
+            console.error(`[${requestId}] Missing EVOLUTION_API_URL or EVOLUTION_API_KEY env vars`);
+            return;
+        }
+
+        const sendUrl = `${evolutionUrl}/message/sendText/${instance}`;
+        const sendResponse = await fetch(sendUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "apikey": evolutionApiKey
+            },
+            body: JSON.stringify({
+                number: remoteJid,
+                text: replyText
+            })
+        });
+
+        if (!sendResponse.ok) {
+            console.error(`[${requestId}] Failed to send reply: ${sendResponse.status}`);
+        } else {
+            console.log(`[${requestId}] Reply sent to ${remoteJid}`);
+        }
+
+    } catch (error) {
+        console.error(`[${requestId}] Evolution handler error:`, error);
+    }
+}
+
+// ============================================
 // API Routes
 // ============================================
 
 // Main chat endpoint
 app.post("/api/chat", handleChat);
+
+// Evolution API webhook
+app.post("/webhook/evolution", handleEvolutionWebhook);
 
 // Webhook alias (for n8n integration)
 app.post("/webhook", handleChat);
