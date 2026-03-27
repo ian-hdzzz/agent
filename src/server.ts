@@ -220,8 +220,10 @@ async function handleEvolutionWebhook(req: Request, res: Response): Promise<void
 
     const remoteJid = data?.key?.remoteJid as string;
     const instance = body.instance as string;
+    // Use phone number only (strip @s.whatsapp.net) as conversation key
+    const phoneNumber = remoteJid.replace(/@s\.whatsapp\.net$/, '').replace(/@.*$/, '');
 
-    console.log(`[${requestId}] Evolution webhook from ${remoteJid}: "${messageText.substring(0, 80)}"`);
+    console.log(`[${requestId}] Evolution webhook from ${phoneNumber}: "${messageText.substring(0, 80)}"`);
 
     // Respond 200 immediately so Evolution doesn't retry
     res.status(200).json({ status: "received" });
@@ -229,9 +231,9 @@ async function handleEvolutionWebhook(req: Request, res: Response): Promise<void
     try {
         const result = await runWorkflow({
             input_as_text: messageText,
-            conversationId: remoteJid,
-            contactId: data?.key?.participant || remoteJid,
-            metadata: { source: "evolution", instance, pushName: data?.pushName }
+            conversationId: phoneNumber,
+            contactId: undefined,
+            metadata: { source: "evolution", instance, pushName: data?.pushName, remoteJid }
         });
 
         const replyText = result.output_text || "Lo siento, no pude procesar tu mensaje.";
