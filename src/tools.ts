@@ -498,9 +498,11 @@ export async function createTicketDirect(input: CreateTicketInput): Promise<Crea
         const status = "open"; // Always start as open
 
         // Use Chatwoot context for contact_id and conversation_id if not explicitly provided
-        let contactId = input.contact_id ?? chatwootContext.contactId ?? null;
-        let conversationId = input.conversation_id ?? chatwootContext.conversationId ?? null;
-        let inboxId = input.inbox_id ?? chatwootContext.inboxId ?? null;
+        // Only use integer IDs (valid Chatwoot IDs), not phone numbers
+        const isValidChatwootId = (v: any) => v != null && Number.isInteger(Number(v)) && Number(v) < 2147483647;
+        let contactId = input.contact_id ?? (isValidChatwootId(chatwootContext.contactId) ? chatwootContext.contactId : null);
+        let conversationId = input.conversation_id ?? (isValidChatwootId(chatwootContext.conversationId) ? chatwootContext.conversationId : null);
+        let inboxId = input.inbox_id ?? (isValidChatwootId(chatwootContext.inboxId) ? chatwootContext.inboxId : null);
         let clientName = input.client_name || null;
 
         // If we have contactId from Chatwoot context, fetch client name
@@ -546,13 +548,14 @@ export async function createTicketDirect(input: CreateTicketInput): Promise<Crea
                 client_name, contact_id, conversation_id, inbox_id,
                 metadata, created_at, updated_at
             ) VALUES (
-                2, $1, $2, $3, $4, $5,
-                $6, $7, 'whatsapp', $8,
-                $9, $10, $11, $12,
-                $13, NOW(), NOW()
+                $1, $2, $3, $4, $5, $6,
+                $7, $8, 'whatsapp', $9,
+                $10, $11, $12, $13,
+                $14, NOW(), NOW()
             )
             RETURNING id, folio
         `, [
+            parseInt(process.env.CHATWOOT_ACCOUNT_ID || '1'),
             folio,
             input.titulo,
             input.descripcion,
