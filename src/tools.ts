@@ -24,7 +24,10 @@ import { getCurrentChatwootContext } from "./context.js";
 // Configuration
 // ============================================
 
-const CEA_API_BASE = "https://aquacis-cf-int.ceaqueretaro.gob.mx/Comercial/services";
+const CEA_API_BASE = "https://supra-back.whoopflow.com/Comercial/services";
+
+// SUPRA REST API (reemplaza llamadas SOAP de CEA)
+const SUPRA_API_BASE = process.env.SUPRA_API_URL || "https://supra-back.whoopflow.com";
 
 // Proxy configuration for whitelisted IP
 const PROXY_URL = process.env.CEA_PROXY_URL || null; // e.g., "http://10.128.0.7:3128"
